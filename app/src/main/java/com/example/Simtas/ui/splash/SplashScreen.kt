@@ -1,13 +1,21 @@
 package com.example.Simtas.ui.splash
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -20,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,6 +36,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -38,6 +48,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.Simtas.ui.theme.AIBasedClassNotesAppTheme
+import com.example.Simtas.ui.theme.CardBg
 import com.example.Simtas.ui.theme.InactiveDot
 import com.example.Simtas.ui.theme.InnerCircleBg
 import com.example.Simtas.ui.theme.OuterRingBorder
@@ -46,12 +57,14 @@ import com.example.Simtas.ui.theme.SplashBackground
 import com.example.Simtas.ui.theme.TextDarkPrimary
 import com.example.Simtas.ui.theme.TextMuted
 import com.example.Simtas.ui.theme.TextSubtitle
+import com.example.Simtas.ui.theme.ThemeManager
 
-import androidx.compose.runtime.remember
+private val SplashBorderColor: Color
+    get() = if (ThemeManager.isDark()) Color(0xFF332B52) else Color(0xFFE9D5FF).copy(alpha = 0.8f)
 
 /**
- * Splash screen UI component built with Jetpack Compose without extra dependencies.
- * Observes state from [SplashViewModel] adhering to MVVM architecture.
+ * Splash screen UI component built with Jetpack Compose.
+ * Features the clean Luxury Pastel Lavender design and observes state from [SplashViewModel].
  */
 @Composable
 fun SplashScreen(
@@ -77,98 +90,126 @@ fun SplashScreenContent(
         modifier = modifier.fillMaxSize(),
         color = SplashBackground
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Top Header Label
-            TopHeaderSection(
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Subtle ambient lavender glow in background
+            Canvas(
                 modifier = Modifier
-                    .padding(top = 40.dp)
-            )
-
-            // Center Illustration Artwork
-            CenterArtworkSection()
-
-            // Text Titles Section
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(bottom = 20.dp)
+                    .fillMaxWidth()
+                    .height(300.dp)
+                    .align(Alignment.Center)
             ) {
-                Text(
-                    text = "SmartNotes AI",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextDarkPrimary,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text(
-                    text = "Turn Lectures into Smart Notes.",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = TextSubtitle,
-                    textAlign = TextAlign.Center
+                val isDark = ThemeManager.isDark()
+                val glowColor = if (isDark) Color(0xFF6C5CE7).copy(alpha = 0.14f) else Color(0xFFDDD6FE).copy(alpha = 0.50f)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(glowColor, Color.Transparent),
+                        center = center,
+                        radius = size.width * 0.65f
+                    ),
+                    center = center,
+                    radius = size.width * 0.65f
                 )
             }
 
-            // Bottom Section: Page Indicators & Footer Motto
             Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp, vertical = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(bottom = 16.dp)
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                PageIndicatorSection(
-                    currentPage = currentPage,
-                    totalPages = totalPages
+                // Top Header Pill Label
+                TopHeaderSection(
+                    modifier = Modifier.padding(top = 36.dp)
                 )
 
-                Spacer(modifier = Modifier.height(28.dp))
+                // Center Artwork with concentric rings & floating sparkle badge
+                CenterArtworkSection()
 
-                Text(
-                    text = "LESS SCRIBBLING. MORE UNDERSTANDING.",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextMuted,
-                    letterSpacing = 1.2.sp,
-                    textAlign = TextAlign.Center
-                )
+                // Text Titles Section
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                ) {
+                    Text(
+                        text = "SmartNotes AI",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = TextDarkPrimary,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Turn Lectures into Smart Notes.",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = TextSubtitle,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                // Bottom Section: Page Indicators & Footer Motto
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                ) {
+                    PageIndicatorSection(
+                        currentPage = currentPage,
+                        totalPages = totalPages
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        text = "LESS SCRIBBLING. MORE UNDERSTANDING.",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextMuted,
+                        letterSpacing = 1.4.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
 }
 
 /**
- * Top "YOUR STUDY COMPANION" pill label with sparkle icon.
+ * Top "YOUR STUDY COMPANION" pill label with sparkle star.
  */
 @Composable
 private fun TopHeaderSection(modifier: Modifier = Modifier) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
+    Box(
         modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(InnerCircleBg)
+            .border(1.dp, SplashBorderColor, RoundedCornerShape(20.dp))
+            .padding(horizontal = 14.dp, vertical = 6.dp)
     ) {
-        Canvas(modifier = Modifier.size(16.dp)) {
-            drawSparkleStar(
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Canvas(modifier = Modifier.size(14.dp)) {
+                drawSparkleStar(
+                    color = PurplePrimary,
+                    center = Offset(size.width / 2, size.height / 2),
+                    starRadius = size.width / 2.2f
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                text = "YOUR STUDY COMPANION",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.ExtraBold,
                 color = PurplePrimary,
-                center = Offset(size.width / 2, size.height / 2),
-                starRadius = size.width / 2.5f
+                letterSpacing = 1.2.sp
             )
         }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Text(
-            text = "YOUR STUDY COMPANION",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            color = PurplePrimary,
-            letterSpacing = 1.2.sp
-        )
     }
 }
 
@@ -177,6 +218,17 @@ private fun TopHeaderSection(modifier: Modifier = Modifier) {
  */
 @Composable
 private fun CenterArtworkSection() {
+    val infiniteTransition = rememberInfiniteTransition(label = "SplashGlow")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.96f,
+        targetValue = 1.04f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier.size(280.dp)
@@ -185,7 +237,7 @@ private fun CenterArtworkSection() {
         Canvas(modifier = Modifier.size(270.dp)) {
             drawCircle(
                 color = OuterRingBorder,
-                radius = size.minDimension / 2,
+                radius = (size.minDimension / 2) * pulseScale,
                 style = Stroke(width = 1.5.dp.toPx())
             )
         }
@@ -196,6 +248,7 @@ private fun CenterArtworkSection() {
                 .size(200.dp)
                 .clip(CircleShape)
                 .background(InnerCircleBg)
+                .border(1.dp, SplashBorderColor, CircleShape)
         )
 
         // Main Purple Rounded Square Container
@@ -206,30 +259,34 @@ private fun CenterArtworkSection() {
                 .shadow(
                     elevation = 16.dp,
                     shape = RoundedCornerShape(32.dp),
-                    ambientColor = PurplePrimary.copy(alpha = 0.3f),
-                    spotColor = PurplePrimary.copy(alpha = 0.3f)
+                    ambientColor = PurplePrimary.copy(alpha = 0.25f),
+                    spotColor = PurplePrimary.copy(alpha = 0.35f)
                 )
                 .clip(RoundedCornerShape(32.dp))
-                .background(PurplePrimary)
+                .background(
+                    Brush.linearGradient(
+                        listOf(PurplePrimary, Color(0xFF8B5CF6))
+                    )
+                )
         ) {
-            // Drawn Note & Pencil Icon
             NotebookPencilCanvas(modifier = Modifier.size(64.dp))
         }
 
-        // Floating Badge at Bottom-Right of the Main Purple Box
+        // Floating Sparkle Badge at Bottom-Right of the Main Purple Box
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .offset(x = 44.dp, y = 44.dp)
+                .offset(x = 46.dp, y = 46.dp)
                 .size(46.dp)
                 .shadow(
                     elevation = 8.dp,
                     shape = RoundedCornerShape(14.dp),
-                    ambientColor = Color.Black.copy(alpha = 0.1f),
-                    spotColor = Color.Black.copy(alpha = 0.15f)
+                    ambientColor = PurplePrimary.copy(alpha = 0.15f),
+                    spotColor = PurplePrimary.copy(alpha = 0.20f)
                 )
                 .clip(RoundedCornerShape(14.dp))
-                .background(Color.White)
+                .background(CardBg)
+                .border(1.dp, SplashBorderColor, RoundedCornerShape(14.dp))
         ) {
             Canvas(modifier = Modifier.size(22.dp)) {
                 drawSparkleStar(
@@ -237,7 +294,6 @@ private fun CenterArtworkSection() {
                     center = Offset(size.width / 2.2f, size.height / 1.8f),
                     starRadius = size.width / 2.8f
                 )
-                // Small extra dots
                 drawCircle(
                     color = PurplePrimary,
                     radius = 2.dp.toPx(),
@@ -250,7 +306,6 @@ private fun CenterArtworkSection() {
 
 /**
  * Custom Canvas drawing for Notebook + Lines + Binding loops + Pencil.
- * Fully native rendering using Compose Canvas.
  */
 @Composable
 private fun NotebookPencilCanvas(modifier: Modifier = Modifier) {
@@ -258,7 +313,6 @@ private fun NotebookPencilCanvas(modifier: Modifier = Modifier) {
         val strokeWidth = 2.5.dp.toPx()
         val white = Color.White
 
-        // 1. Notebook main body outline
         val padLeft = size.width * 0.24f
         val padTop = size.height * 0.18f
         val padWidth = size.width * 0.52f
@@ -273,7 +327,6 @@ private fun NotebookPencilCanvas(modifier: Modifier = Modifier) {
             style = Stroke(width = strokeWidth)
         )
 
-        // 2. Spiral binding dashes on the left edge
         val bindingStartX = padLeft - (2.dp.toPx())
         val bindingLength = 5.dp.toPx()
         val startY = padTop + (padHeight * 0.2f)
@@ -290,7 +343,6 @@ private fun NotebookPencilCanvas(modifier: Modifier = Modifier) {
             )
         }
 
-        // 3. Horizontal lines inside notebook
         val lineStartX = padLeft + (padWidth * 0.22f)
         val lineEndX = padLeft + (padWidth * 0.78f)
         val line1Y = padTop + (padHeight * 0.35f)
@@ -321,7 +373,6 @@ private fun NotebookPencilCanvas(modifier: Modifier = Modifier) {
             cap = StrokeCap.Round
         )
 
-        // 4. Diagonal Pencil icon (at top right of notebook)
         val pStartX = size.width * 0.54f
         val pStartY = size.height * 0.46f
         val pEndX = size.width * 0.76f
@@ -335,7 +386,6 @@ private fun NotebookPencilCanvas(modifier: Modifier = Modifier) {
             cap = StrokeCap.Round
         )
 
-        // Pencil tip triangle
         val tipPath = Path().apply {
             moveTo(pStartX - 2.dp.toPx(), pStartY + 2.dp.toPx())
             lineTo(pStartX + 3.dp.toPx(), pStartY + 6.dp.toPx())
@@ -349,9 +399,6 @@ private fun NotebookPencilCanvas(modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * Draws a 4-point star sparkle shape on a canvas.
- */
 private fun DrawScope.drawSparkleStar(
     color: Color,
     center: Offset,
@@ -372,9 +419,6 @@ private fun DrawScope.drawSparkleStar(
     drawPath(path = path, color = color)
 }
 
-/**
- * Bottom page indicator section with 1 active capsule and 2 inactive dots.
- */
 @Composable
 private fun PageIndicatorSection(
     currentPage: Int,
@@ -391,7 +435,7 @@ private fun PageIndicatorSection(
             if (isActive) {
                 Box(
                     modifier = Modifier
-                        .width(22.dp)
+                        .width(24.dp)
                         .height(6.dp)
                         .clip(CircleShape)
                         .background(PurplePrimary)

@@ -2,6 +2,7 @@ package com.example.Simtas.ui.login
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,11 +16,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -32,9 +35,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -49,14 +54,20 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.Simtas.ui.theme.AIBasedClassNotesAppTheme
+import com.example.Simtas.ui.theme.CardBg
+import com.example.Simtas.ui.theme.InnerCircleBg
 import com.example.Simtas.ui.theme.PurplePrimary
 import com.example.Simtas.ui.theme.SplashBackground
 import com.example.Simtas.ui.theme.TextDarkPrimary
 import com.example.Simtas.ui.theme.TextMuted
 import com.example.Simtas.ui.theme.TextSubtitle
+import com.example.Simtas.ui.theme.ThemeManager
+
+private val LoginBorderColor: Color
+    get() = if (ThemeManager.isDark()) Color(0xFF332B52) else Color(0xFFE9D5FF).copy(alpha = 0.8f)
 
 /**
- * Login Screen component adhering to MVVM architecture.
+ * Login Screen adhering to MVVM architecture with clean Luxury Pastel Lavender design.
  */
 @Composable
 fun LoginScreen(
@@ -82,7 +93,6 @@ fun LoginScreen(
         },
         onLoginClick = {
             viewModel.onLoginClicked { onLoginSuccess() }
-
         },
         onSignUpClick = onSignUpClick
     )
@@ -118,46 +128,56 @@ fun LoginScreenContent(
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Top Bar with Back Arrow and Title
+                // Top Navigation Bar
                 TopNavigationBar(onBackClick = onBackClick)
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                // Notebook Logo Icon
+                // Cute Educational Badge Header
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(56.dp)
+                        .size(58.dp)
                         .clip(RoundedCornerShape(18.dp))
-                        .background(PurplePrimary)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(PurplePrimary, Color(0xFF8B5CF6))
+                            )
+                        )
+                        .shadow(
+                            elevation = 8.dp,
+                            shape = RoundedCornerShape(18.dp),
+                            ambientColor = PurplePrimary.copy(alpha = 0.25f),
+                            spotColor = PurplePrimary.copy(alpha = 0.35f)
+                        )
                 ) {
-                    Canvas(modifier = Modifier.size(30.dp)) {
+                    Canvas(modifier = Modifier.size(32.dp)) {
                         drawNotebookPencil(Color.White)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Title & Subtitle
                 Text(
                     text = "Welcome back, learner.",
                     fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                     color = TextDarkPrimary
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "Your ideas are right where you left them.",
+                    text = "Your ideas and study notes are right where you left them.",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Normal,
                     color = TextSubtitle
                 )
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(26.dp))
 
-                // Email Input Field
+                // Field 1: Email Address
                 Text(
                     text = "Email address",
                     fontSize = 13.sp,
@@ -175,26 +195,26 @@ fun LoginScreenContent(
                         .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        disabledContainerColor = Color.White,
+                        focusedContainerColor = CardBg,
+                        unfocusedContainerColor = CardBg,
+                        disabledContainerColor = CardBg,
                         focusedBorderColor = PurplePrimary,
-                        unfocusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = LoginBorderColor,
                         focusedTextColor = TextDarkPrimary,
                         unfocusedTextColor = TextDarkPrimary
                     ),
                     leadingIcon = {
                         Canvas(modifier = Modifier.size(20.dp)) {
-                            drawMailIcon(TextMuted)
+                            drawMailIcon(PurplePrimary)
                         }
                     },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-                // Password Input Field
+                // Field 2: Password
                 Text(
                     text = "Password",
                     fontSize = 13.sp,
@@ -212,17 +232,17 @@ fun LoginScreenContent(
                         .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        disabledContainerColor = Color.White,
+                        focusedContainerColor = CardBg,
+                        unfocusedContainerColor = CardBg,
+                        disabledContainerColor = CardBg,
                         focusedBorderColor = PurplePrimary,
-                        unfocusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = LoginBorderColor,
                         focusedTextColor = TextDarkPrimary,
                         unfocusedTextColor = TextDarkPrimary
                     ),
                     leadingIcon = {
                         Canvas(modifier = Modifier.size(20.dp)) {
-                            drawLockIcon(TextMuted)
+                            drawLockIcon(PurplePrimary)
                         }
                     },
                     trailingIcon = {
@@ -251,24 +271,33 @@ fun LoginScreenContent(
                         .clickable { onForgotPasswordClick() }
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
+                // Error Message Display
                 if (!uiState.errorMessage.isNullOrEmpty()) {
-                    Text(
-                        text = uiState.errorMessage,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFFD32F2F),
-                        textAlign = TextAlign.Center,
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 12.dp)
-                    )
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFFFEBEE))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = uiState.errorMessage,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFFD32F2F),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
                 }
 
-                // Login Button
+                // Login CTA Button
                 Button(
                     onClick = onLoginClick,
+                    enabled = !uiState.isLoading,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(54.dp),
@@ -278,20 +307,28 @@ fun LoginScreenContent(
                     ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Canvas(modifier = Modifier.size(18.dp)) {
-                            drawRightArrow(Color.White)
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Login",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+                    if (uiState.isLoading) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp
                         )
+                    } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Canvas(modifier = Modifier.size(18.dp)) {
+                                drawRightArrow(Color.White)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Login",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
                     }
                 }
 
@@ -317,7 +354,7 @@ fun LoginScreenContent(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(28.dp))
             }
 
             // Bottom Security Info Card
@@ -349,11 +386,11 @@ private fun TopNavigationBar(onBackClick: () -> Unit) {
             }
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
         Text(
             text = "Login",
-            fontSize = 20.sp,
+            fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = TextDarkPrimary
         )
@@ -361,39 +398,36 @@ private fun TopNavigationBar(onBackClick: () -> Unit) {
 }
 
 /**
- * Bottom Security / Privacy Card
+ * Bottom Security Info Card
  */
 @Composable
 private fun SecurityInfoCard(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFFEEF3FF))
-            .padding(16.dp)
+            .background(CardBg)
+            .border(1.dp, LoginBorderColor, RoundedCornerShape(16.dp))
+            .padding(14.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Canvas(modifier = Modifier.size(24.dp)) {
-                drawShieldCheckIcon(PurplePrimary)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(InnerCircleBg)
+            ) {
+                Canvas(modifier = Modifier.size(16.dp)) {
+                    drawLockIcon(PurplePrimary)
+                }
             }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column {
-                Text(
-                    text = "Your lectures stay yours.",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = PurplePrimary
-                )
-                Text(
-                    text = "Private, secure and ready to learn.",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = TextSubtitle
-                )
-            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = "End-to-end encrypted • Student session protected",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextMuted
+            )
         }
     }
 }
@@ -402,169 +436,101 @@ private fun SecurityInfoCard(modifier: Modifier = Modifier) {
 
 private fun DrawScope.drawBackArrow(color: Color) {
     val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
-    drawLine(
-        color = color,
-        start = Offset(size.width * 0.85f, size.height * 0.5f),
-        end = Offset(size.width * 0.15f, size.height * 0.5f),
-        strokeWidth = 2.dp.toPx(),
-        cap = StrokeCap.Round
-    )
     val path = Path().apply {
-        moveTo(size.width * 0.45f, size.height * 0.2f)
-        lineTo(size.width * 0.15f, size.height * 0.5f)
-        lineTo(size.width * 0.45f, size.height * 0.8f)
+        moveTo(size.width * 0.6f, size.height * 0.25f)
+        lineTo(size.width * 0.35f, size.height * 0.5f)
+        lineTo(size.width * 0.6f, size.height * 0.75f)
+    }
+    drawPath(path = path, color = color, style = stroke)
+}
+
+private fun DrawScope.drawRightArrow(color: Color) {
+    val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+    val path = Path().apply {
+        moveTo(size.width * 0.2f, size.height * 0.5f)
+        lineTo(size.width * 0.75f, size.height * 0.5f)
+        moveTo(size.width * 0.5f, size.height * 0.25f)
+        lineTo(size.width * 0.75f, size.height * 0.5f)
+        lineTo(size.width * 0.5f, size.height * 0.75f)
     }
     drawPath(path = path, color = color, style = stroke)
 }
 
 private fun DrawScope.drawNotebookPencil(color: Color) {
-    val strokeWidth = 2.dp.toPx()
-    val padLeft = size.width * 0.25f
-    val padTop = size.height * 0.2f
-    val padWidth = size.width * 0.5f
-    val padHeight = size.height * 0.6f
-
-    drawRoundRect(
-        color = color,
-        topLeft = Offset(padLeft, padTop),
-        size = Size(padWidth, padHeight),
-        cornerRadius = CornerRadius(4.dp.toPx()),
-        style = Stroke(width = strokeWidth)
-    )
-
-    val lineStartX = padLeft + (padWidth * 0.25f)
-    val lineEndX = padLeft + (padWidth * 0.75f)
-    drawLine(
-        color = color,
-        start = Offset(lineStartX, padTop + (padHeight * 0.35f)),
-        end = Offset(lineEndX, padTop + (padHeight * 0.35f)),
-        strokeWidth = strokeWidth,
-        cap = StrokeCap.Round
-    )
-    drawLine(
-        color = color,
-        start = Offset(lineStartX, padTop + (padHeight * 0.65f)),
-        end = Offset(lineStartX + (padWidth * 0.35f), padTop + (padHeight * 0.65f)),
-        strokeWidth = strokeWidth,
-        cap = StrokeCap.Round
-    )
-}
-
-private fun DrawScope.drawMailIcon(color: Color) {
     val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
     drawRoundRect(
         color = color,
-        topLeft = Offset(size.width * 0.1f, size.height * 0.25f),
-        size = Size(size.width * 0.8f, size.height * 0.5f),
+        topLeft = Offset(size.width * 0.2f, size.height * 0.15f),
+        size = Size(size.width * 0.6f, size.height * 0.7f),
         cornerRadius = CornerRadius(4.dp.toPx()),
         style = stroke
     )
+    drawLine(color = color, start = Offset(size.width * 0.35f, size.height * 0.38f), end = Offset(size.width * 0.65f, size.height * 0.38f), strokeWidth = 1.8.dp.toPx(), cap = StrokeCap.Round)
+    drawLine(color = color, start = Offset(size.width * 0.35f, size.height * 0.55f), end = Offset(size.width * 0.55f, size.height * 0.55f), strokeWidth = 1.8.dp.toPx(), cap = StrokeCap.Round)
+}
+
+private fun DrawScope.drawMailIcon(color: Color) {
+    val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round)
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(size.width * 0.15f, size.height * 0.25f),
+        size = Size(size.width * 0.7f, size.height * 0.5f),
+        cornerRadius = CornerRadius(3.dp.toPx()),
+        style = stroke
+    )
     val path = Path().apply {
-        moveTo(size.width * 0.15f, size.height * 0.3f)
-        lineTo(size.width * 0.5f, size.height * 0.55f)
-        lineTo(size.width * 0.85f, size.height * 0.3f)
+        moveTo(size.width * 0.18f, size.height * 0.28f)
+        lineTo(size.width * 0.5f, size.height * 0.52f)
+        lineTo(size.width * 0.82f, size.height * 0.28f)
     }
     drawPath(path = path, color = color, style = stroke)
 }
 
 private fun DrawScope.drawLockIcon(color: Color) {
-    val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
+    val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round)
     drawRoundRect(
         color = color,
-        topLeft = Offset(size.width * 0.2f, size.height * 0.45f),
-        size = Size(size.width * 0.6f, size.height * 0.45f),
+        topLeft = Offset(size.width * 0.2f, size.height * 0.42f),
+        size = Size(size.width * 0.6f, size.height * 0.46f),
         cornerRadius = CornerRadius(4.dp.toPx()),
         style = stroke
     )
-    val path = Path().apply {
-        moveTo(size.width * 0.32f, size.height * 0.45f)
-        lineTo(size.width * 0.32f, size.height * 0.3f)
-        quadraticTo(
-            size.width * 0.32f, size.height * 0.15f,
-            size.width * 0.5f, size.height * 0.15f
-        )
-        quadraticTo(
-            size.width * 0.68f, size.height * 0.15f,
-            size.width * 0.68f, size.height * 0.3f
-        )
-        lineTo(size.width * 0.68f, size.height * 0.45f)
-    }
-    drawPath(path = path, color = color, style = stroke)
+    drawArc(
+        color = color,
+        startAngle = 180f,
+        sweepAngle = 180f,
+        useCenter = false,
+        topLeft = Offset(size.width * 0.32f, size.height * 0.16f),
+        size = Size(size.width * 0.36f, size.height * 0.38f),
+        style = stroke
+    )
 }
 
 private fun DrawScope.drawEyeIcon(color: Color, isOff: Boolean) {
-    val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
-    val path = Path().apply {
-        moveTo(size.width * 0.1f, size.height * 0.5f)
+    val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round)
+    val eyePath = Path().apply {
+        moveTo(size.width * 0.15f, size.height * 0.5f)
         quadraticTo(
-            size.width * 0.5f, size.height * 0.15f,
-            size.width * 0.9f, size.height * 0.5f
+            size.width * 0.5f, size.height * 0.2f,
+            size.width * 0.85f, size.height * 0.5f
         )
         quadraticTo(
-            size.width * 0.5f, size.height * 0.85f,
-            size.width * 0.1f, size.height * 0.5f
+            size.width * 0.5f, size.height * 0.8f,
+            size.width * 0.15f, size.height * 0.5f
         )
     }
-    drawPath(path = path, color = color, style = stroke)
-    drawCircle(color = color, radius = size.width * 0.15f, center = Offset(size.width / 2, size.height / 2), style = stroke)
+    drawPath(path = eyePath, color = color, style = stroke)
+    drawCircle(color = color, radius = size.width * 0.14f, center = Offset(size.width * 0.5f, size.height * 0.5f))
 
     if (isOff) {
         drawLine(
             color = color,
-            start = Offset(size.width * 0.2f, size.height * 0.2f),
-            end = Offset(size.width * 0.8f, size.height * 0.8f),
+            start = Offset(size.width * 0.2f, size.height * 0.8f),
+            end = Offset(size.width * 0.8f, size.height * 0.2f),
             strokeWidth = 1.8.dp.toPx(),
             cap = StrokeCap.Round
         )
     }
-}
-
-private fun DrawScope.drawShieldCheckIcon(color: Color) {
-    val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
-    val shieldPath = Path().apply {
-        moveTo(size.width * 0.5f, size.height * 0.1f)
-        lineTo(size.width * 0.85f, size.height * 0.25f)
-        lineTo(size.width * 0.85f, size.height * 0.55f)
-        quadraticTo(
-            size.width * 0.85f, size.height * 0.85f,
-            size.width * 0.5f, size.height * 0.95f
-        )
-        quadraticTo(
-            size.width * 0.15f, size.height * 0.85f,
-            size.width * 0.15f, size.height * 0.55f
-        )
-        lineTo(size.width * 0.15f, size.height * 0.25f)
-        close()
-    }
-    drawPath(path = shieldPath, color = color, style = stroke)
-
-    val checkPath = Path().apply {
-        moveTo(size.width * 0.35f, size.height * 0.52f)
-        lineTo(size.width * 0.47f, size.height * 0.64f)
-        lineTo(size.width * 0.65f, size.height * 0.42f)
-    }
-    drawPath(path = checkPath, color = color, style = stroke)
-}
-
-private fun DrawScope.drawRightArrow(color: Color) {
-    val strokeWidth = 2.dp.toPx()
-    drawLine(
-        color = color,
-        start = Offset(size.width * 0.2f, size.height * 0.5f),
-        end = Offset(size.width * 0.8f, size.height * 0.5f),
-        strokeWidth = strokeWidth,
-        cap = StrokeCap.Round
-    )
-    val headPath = Path().apply {
-        moveTo(size.width * 0.58f, size.height * 0.28f)
-        lineTo(size.width * 0.82f, size.height * 0.5f)
-        lineTo(size.width * 0.58f, size.height * 0.72f)
-    }
-    drawPath(
-        path = headPath,
-        color = color,
-        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-    )
 }
 
 @Preview(showBackground = true, showSystemUi = true)

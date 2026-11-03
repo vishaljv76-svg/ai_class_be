@@ -1,5 +1,8 @@
 package com.example.Simtas.ui.upload
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -41,6 +44,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -67,12 +71,29 @@ fun UploadLectureScreen(
     onContinueClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    val audioPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.onAudioFileSelected(context, uri)
+        } else {
+            viewModel.onPickerCancelled()
+        }
+    }
 
     UploadLectureScreenContent(
         uiState = uiState,
         modifier = modifier,
         onBackClick = onBackClick,
-        onBrowseFilesClick = viewModel::onBrowseFilesClicked,
+        onBrowseFilesClick = {
+            try {
+                audioPickerLauncher.launch(arrayOf("audio/*"))
+            } catch (e: Exception) {
+                viewModel.onPickerError("Unable to open file picker: ${e.localizedMessage ?: "Unknown error"}")
+            }
+        },
         onCancelUploadClick = viewModel::onCancelUploadClicked,
         onContinueClick = {
             viewModel.onContinueClicked()
@@ -138,6 +159,18 @@ fun UploadLectureScreenContent(
                     onBrowseFilesClick = onBrowseFilesClick
                 )
 
+                if (!uiState.errorMessage.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = uiState.errorMessage,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFFDC2626),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // Active Upload Progress Card (If file selected)
@@ -185,12 +218,14 @@ fun UploadLectureScreenContent(
 
                 Button(
                     onClick = onContinueClick,
+                    enabled = isEnabled,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(54.dp),
                     shape = RoundedCornerShape(27.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = buttonBg
+                        containerColor = buttonBg,
+                        disabledContainerColor = InnerCircleBg.copy(alpha = 0.6f)
                     ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                 ) {
@@ -311,7 +346,8 @@ private fun DashedUploadDropzoneCard(
                 text = "Choose an audio file",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextDarkPrimary
+                color = TextDarkPrimary,
+                modifier = Modifier.clickable { onBrowseFilesClick() }
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -619,6 +655,15 @@ private fun DrawScope.drawRightArrow(color: Color) {
 @Composable
 fun UploadLectureScreenPreview() {
     AIBasedClassNotesAppTheme {
-        UploadLectureScreenContent(uiState = UploadLectureUiState())
+        UploadLectureScreenContent(
+            uiState = UploadLectureUiState(
+                selectedFileName = "CS301_Normalization.m4a",
+                fileDurationAndSize = "42:18 duration · 38.4 MB",
+                uploadProgressPercent = 78,
+                uploadedBytesText = "Uploading · 30.0 of 38.4 MB",
+                isUploading = true,
+                isFileSelected = true
+            )
+        )
     }
 }

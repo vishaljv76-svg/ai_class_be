@@ -18,6 +18,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -58,7 +60,8 @@ import com.example.Simtas.ui.theme.TextSubtitle
 fun CreateSmartNotesScreen(
     modifier: Modifier = Modifier,
     viewModel: CreateSmartNotesViewModel = remember { CreateSmartNotesViewModel() },
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onContinueClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -66,6 +69,7 @@ fun CreateSmartNotesScreen(
         uiState = uiState,
         modifier = modifier,
         onBackClick = onBackClick,
+        onContinueClick = onContinueClick,
         onTabSelect = viewModel::selectTab
     )
 }
@@ -75,6 +79,7 @@ fun CreateSmartNotesScreenContent(
     uiState: CreateSmartNotesUiState,
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
+    onContinueClick: () -> Unit = {},
     onTabSelect: (HomeBottomTab) -> Unit = {}
 ) {
     Surface(
@@ -151,6 +156,37 @@ fun CreateSmartNotesScreenContent(
                 ) {
                     uiState.includedFeatures.forEach { feature ->
                         NoteFeatureCardItem(feature = feature)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // View Generated Notes Primary CTA Button
+                Button(
+                    onClick = onContinueClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                    shape = RoundedCornerShape(27.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PurplePrimary
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Canvas(modifier = Modifier.size(18.dp)) {
+                            drawSparkleStarIcon(Color.White)
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "View Generated Notes",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
                 }
 

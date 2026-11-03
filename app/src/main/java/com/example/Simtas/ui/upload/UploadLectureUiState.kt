@@ -1,14 +1,18 @@
 package com.example.Simtas.ui.upload
 
+import android.net.Uri
+
 /**
  * UI State for Upload Lecture Screen following MVVM architecture.
  */
 data class UploadLectureUiState(
-    val selectedFileName: String = "CS301_Normalization.m4a",
-    val fileDurationAndSize: String = "42:18 duration · 38.4 MB",
-    val uploadProgressPercent: Int = 78,
-    val uploadedBytesText: String = "Uploading · 30.0 of 38.4 MB",
-    val isUploading: Boolean = true,
+    val selectedFileName: String = "",
+    val fileDurationAndSize: String = "",
+    val uploadProgressPercent: Int = 0,
+    val uploadedBytesText: String = "",
+    val isUploading: Boolean = false,
     val isUploadComplete: Boolean = false,
-    val isFileSelected: Boolean = true
+    val isFileSelected: Boolean = false,
+    val selectedFileUri: Uri? = null,
+    val errorMessage: String? = null
 )

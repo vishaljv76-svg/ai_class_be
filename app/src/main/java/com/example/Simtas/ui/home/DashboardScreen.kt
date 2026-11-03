@@ -102,7 +102,8 @@ fun DashboardScreen(
     onMyNotesClick: () -> Unit = {},
     onAiQuizClick: () -> Unit = {},
     onViewAllNotesClick: () -> Unit = {},
-    onNoteClick: (String) -> Unit = {}
+    onNoteClick: (String) -> Unit = {},
+    onTabSelect: (HomeBottomTab) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -131,7 +132,10 @@ fun DashboardScreen(
             viewModel.onNoteItemClicked(noteId)
             onNoteClick(noteId)
         },
-        onTabSelect = viewModel::selectTab
+        onTabSelect = { tab ->
+            viewModel.selectTab(tab)
+            onTabSelect(tab)
+        }
     )
 }
 

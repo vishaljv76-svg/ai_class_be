@@ -25,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -66,6 +67,12 @@ fun QuizQuestionScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    LaunchedEffect(uiState.isQuizFinished) {
+        if (uiState.isQuizFinished) {
+            onQuizFinish()
+        }
+    }
+
     QuizQuestionScreenContent(
         uiState = uiState,
         modifier = modifier,
@@ -73,9 +80,11 @@ fun QuizQuestionScreen(
         onMoreOptionsClick = onMoreOptionsClick,
         onOptionSelect = viewModel::selectOption,
         onNextClick = {
-            viewModel.onNextClicked()
-            if (uiState.isQuizFinished) {
+            if (uiState.currentQuestionIndex >= uiState.totalQuestions) {
+                viewModel.onNextClicked()
                 onQuizFinish()
+            } else {
+                viewModel.onNextClicked()
             }
         }
     )

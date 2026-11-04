@@ -20,6 +20,7 @@ object SessionManager {
     private var inMemoryUserName: String = "Alex Morgan"
     private var inMemoryUserEmail: String = "alex.morgan@campus.edu"
     private var inMemoryPhotoPath: String? = null
+    private var appContext: Context? = null
     private var inMemoryLastAudioId: Int? = null
     private var inMemoryLastAudioTitle: String? = null
     private var inMemoryLastAudioDuration: String? = null
@@ -32,6 +33,7 @@ object SessionManager {
     private var inMemoryLastQuizResult: com.example.Simtas.ui.quizresults.QuizResultsUiState? = null
 
     fun init(context: Context) {
+        appContext = context.applicationContext
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         inMemoryToken = prefs.getString(KEY_AUTH_TOKEN, null)
         inMemoryUserId = prefs.getInt(KEY_USER_ID, 1)
@@ -40,13 +42,14 @@ object SessionManager {
         inMemoryPhotoPath = prefs.getString(KEY_PROFILE_PHOTO_PATH, null)
     }
 
-    fun saveSession(context: Context?, token: String, userId: Int, name: String, email: String) {
+    fun saveSession(context: Context? = null, token: String, userId: Int, name: String, email: String) {
         inMemoryToken = token
         inMemoryUserId = userId
         inMemoryUserName = name
         inMemoryUserEmail = email
 
-        context?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.apply {
+        val ctx = context ?: appContext
+        ctx?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.apply {
             putString(KEY_AUTH_TOKEN, token)
             putInt(KEY_USER_ID, userId)
             putString(KEY_USER_NAME, name)
@@ -55,9 +58,10 @@ object SessionManager {
         }
     }
 
-    fun updateUserName(context: Context?, name: String) {
+    fun updateUserName(context: Context? = null, name: String) {
         inMemoryUserName = name
-        context?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.apply {
+        val ctx = context ?: appContext
+        ctx?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.apply {
             putString(KEY_USER_NAME, name)
             apply()
         }
@@ -73,9 +77,10 @@ object SessionManager {
 
     fun getProfilePhotoPath(): String? = inMemoryPhotoPath
 
-    fun saveProfilePhotoPath(context: Context?, path: String?) {
+    fun saveProfilePhotoPath(context: Context? = null, path: String?) {
         inMemoryPhotoPath = path
-        context?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.apply {
+        val ctx = context ?: appContext
+        ctx?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.apply {
             if (path == null) remove(KEY_PROFILE_PHOTO_PATH) else putString(KEY_PROFILE_PHOTO_PATH, path)
             apply()
         }
@@ -146,7 +151,7 @@ object SessionManager {
 
     fun getLastQuizResult(): com.example.Simtas.ui.quizresults.QuizResultsUiState? = inMemoryLastQuizResult
 
-    fun clearSession(context: Context?) {
+    fun clearSession(context: Context? = null) {
         inMemoryToken = null
         inMemoryUserId = 1
         inMemoryUserName = "Alex Morgan"
@@ -163,7 +168,8 @@ object SessionManager {
         inMemoryDiscoveredResources = emptyList()
         inMemoryLastQuizResult = null
 
-        context?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.clear()?.apply()
+        val ctx = context ?: appContext
+        ctx?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.clear()?.apply()
     }
 }
 

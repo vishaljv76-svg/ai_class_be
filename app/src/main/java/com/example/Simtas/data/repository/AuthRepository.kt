@@ -100,6 +100,30 @@ object AuthRepository {
         }
     }
 
+    suspend fun validateSession(context: Context? = null): Boolean {
+        val token = SessionManager.getToken()
+        if (token.isNullOrEmpty()) {
+            return false
+        }
+
+        val response = ApiClient.get("auth/validate_session.php", token = token)
+        if (response.isSuccess && response.jsonObject != null) {
+            val json = response.jsonObject
+            val userObj = json.optJSONObject("user")
+            val userId = userObj?.optInt("id") ?: json.optInt("user_id", SessionManager.getUserId())
+            val userName = userObj?.optString("name") ?: SessionManager.getUserName()
+            val userEmail = userObj?.optString("email") ?: SessionManager.getUserEmail()
+
+            // Keep persistent session fresh
+            SessionManager.saveSession(context, token, userId, userName, userEmail)
+            return true
+        } else {
+            // Token is invalid, expired, or revoked
+            SessionManager.clearSession(context)
+            return false
+        }
+    }
+
     suspend fun logout(context: Context?) {
         try {
             ApiClient.post("auth/logout.php", "{}")

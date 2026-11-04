@@ -24,18 +24,12 @@ class GeneratedNotesViewModel : ViewModel() {
 
     fun loadGeneratedNotes() {
         val cachedNote = SessionManager.getLastGeneratedNote()
-        val resources = SessionManager.getDiscoveredResources()
         if (cachedNote != null) {
-            val withRes = if (cachedNote.educationalResources.isEmpty() && resources.isNotEmpty()) {
-                cachedNote.copy(educationalResources = resources)
-            } else {
-                cachedNote
-            }
-            _uiState.value = withRes
+            _uiState.value = cachedNote
         } else {
             val lastTitle = SessionManager.getLastUploadedAudioTitle()
             if (!lastTitle.isNullOrBlank()) {
-                _uiState.update { it.copy(lectureTitle = lastTitle, educationalResources = resources) }
+                _uiState.update { it.copy(lectureTitle = lastTitle) }
             }
         }
     }

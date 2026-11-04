@@ -1,8 +1,5 @@
 package com.example.Simtas.ui.notes
 
-import android.content.Intent
-import android.net.Uri
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -202,12 +199,6 @@ fun GeneratedNotesScreenContent(
                     uiState.importantTerms.forEach { term ->
                         ImportantTermChip(text = term)
                     }
-                }
-
-                // Educational Resources & References Section
-                if (uiState.educationalResources.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    EducationalResourcesSection(resources = uiState.educationalResources)
                 }
 
                 Spacer(modifier = Modifier.height(28.dp))
@@ -536,129 +527,6 @@ private fun DrawScope.drawBackArrow(color: Color) {
         lineTo(size.width * 0.45f, size.height * 0.8f)
     }
     drawPath(path = path, color = color, style = stroke)
-}
-
-@Composable
-fun EducationalResourcesSection(
-    resources: List<DiscoveredResourceItem>,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = "Educational references & books",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextDarkPrimary
-            )
-            Box(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(InnerCircleBg)
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = "${resources.size} found",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = PurplePrimary
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Column(
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            resources.forEach { resource ->
-                EducationalResourceCard(
-                    resource = resource,
-                    onClick = {
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(resource.url))
-                            context.startActivity(intent)
-                        } catch (_: Exception) {}
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun EducationalResourceCard(
-    resource: DiscoveredResourceItem,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        color = Color.White,
-        shadowElevation = 2.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(InnerCircleBg)
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        text = resource.source,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PurplePrimary
-                    )
-                }
-
-                Text(
-                    text = "Open Reference ↗",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = PurplePrimary
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = resource.title,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextDarkPrimary
-            )
-
-            if (!resource.snippet.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = resource.snippet,
-                    fontSize = 12.sp,
-                    color = TextMuted,
-                    maxLines = 2
-                )
-            }
-        }
-    }
 }
 
 @Preview(showBackground = true, showSystemUi = true)

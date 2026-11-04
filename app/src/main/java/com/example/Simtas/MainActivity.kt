@@ -29,7 +29,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -112,6 +114,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainAppNavigation() {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var currentScreen by remember { mutableStateOf(AppScreen.Splash) }
     var selectedNoteId by remember { mutableStateOf("1") }
 
@@ -128,11 +131,20 @@ fun MainAppNavigation() {
     var showDiscardRecordDialog by remember { mutableStateOf(false) }
     var showDiscardPreviewDialog by remember { mutableStateOf(false) }
 
-    // Automatic navigation from Splash to Welcome screen after 2.5 seconds
+    // Automatic session validation & persistent login check on app startup
     LaunchedEffect(currentScreen) {
         if (currentScreen == AppScreen.Splash) {
-            delay(2500)
-            currentScreen = AppScreen.Welcome
+            delay(1500)
+            if (SessionManager.isLoggedIn()) {
+                val isValid = com.example.Simtas.data.repository.AuthRepository.validateSession(context)
+                if (isValid) {
+                    currentScreen = AppScreen.HomeDashboard
+                } else {
+                    currentScreen = AppScreen.Login
+                }
+            } else {
+                currentScreen = AppScreen.Welcome
+            }
         }
     }
 
@@ -162,7 +174,7 @@ fun MainAppNavigation() {
                     currentScreen = AppScreen.ForgotPassword
                 },
                 onLoginSuccess = {
-                    currentScreen = AppScreen.StudentOnboarding
+                    currentScreen = AppScreen.HomeDashboard
                 },
                 onSignUpClick = {
                     currentScreen = AppScreen.Signup
@@ -410,7 +422,10 @@ fun MainAppNavigation() {
                     showPrivacyDialog = true
                 },
                 onLogoutClick = {
-                    currentScreen = AppScreen.Welcome
+                    coroutineScope.launch {
+                        com.example.Simtas.data.repository.AuthRepository.logout(context)
+                        currentScreen = AppScreen.Login
+                    }
                 },
                 onTabSelect = { tab ->
                     when (tab) {

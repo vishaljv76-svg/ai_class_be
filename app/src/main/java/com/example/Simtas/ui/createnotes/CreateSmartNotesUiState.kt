@@ -25,5 +25,7 @@ data class CreateSmartNotesUiState(
         NoteFeatureItem("4", "Definitions", "Important terms & concepts explained")
     ),
     val selectedTab: HomeBottomTab = HomeBottomTab.Home,
-    val isGenerationComplete: Boolean = false
+    val isGenerating: Boolean = false,
+    val isGenerationComplete: Boolean = false,
+    val errorMessage: String? = null
 )

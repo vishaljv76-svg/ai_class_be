@@ -114,6 +114,9 @@ object AudioRepository {
             )
 
             val id = transObj.optInt("id")
+            if (id > 0) {
+                SessionManager.setLastTranscriptionId(id)
+            }
             val lectureTitle = transObj.optString("lectureTitle", "Lecture")
             val language = transObj.optString("language", "English")
             val durationAndConfidence = transObj.optString("durationAndConfidence", "42:18 · 98% confidence")
@@ -165,6 +168,9 @@ object AudioRepository {
             val json = response.jsonObject
             val transObj = json.optJSONObject("transcription")
             val id = json.optInt("transcription_id", 0)
+            if (id > 0) {
+                SessionManager.setLastTranscriptionId(id)
+            }
 
             val lectureTitle = transObj?.optString("lectureTitle")
                 ?: json.optString("lecture_title", "Lecture")
@@ -235,6 +241,12 @@ object AudioRepository {
         }.toString()
 
         val response = ApiClient.post("audio/save_transcription.php", payload)
+        if (response.isSuccess && response.jsonObject != null) {
+            val tid = response.jsonObject.optInt("transcription_id", 0)
+            if (tid > 0) {
+                SessionManager.setLastTranscriptionId(tid)
+            }
+        }
         response.isSuccess
     }
 }

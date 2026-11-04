@@ -2,6 +2,7 @@ package com.example.Simtas.data.remote
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.Simtas.ui.notes.GeneratedNotesUiState
 
 /**
  * Manages user authentication session persistence in SharedPreferences.
@@ -22,6 +23,8 @@ object SessionManager {
     private var inMemoryLastAudioId: Int? = null
     private var inMemoryLastAudioTitle: String? = null
     private var inMemoryLastAudioDuration: String? = null
+    private var inMemoryLastTranscriptionId: Int? = null
+    private var inMemoryLastGeneratedNote: GeneratedNotesUiState? = null
 
     fun init(context: Context) {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
@@ -87,6 +90,18 @@ object SessionManager {
 
     fun getLastUploadedAudioDuration(): String? = inMemoryLastAudioDuration
 
+    fun setLastTranscriptionId(transcriptionId: Int) {
+        inMemoryLastTranscriptionId = transcriptionId
+    }
+
+    fun getLastTranscriptionId(): Int? = inMemoryLastTranscriptionId
+
+    fun setLastGeneratedNote(note: GeneratedNotesUiState?) {
+        inMemoryLastGeneratedNote = note
+    }
+
+    fun getLastGeneratedNote(): GeneratedNotesUiState? = inMemoryLastGeneratedNote
+
     fun clearSession(context: Context?) {
         inMemoryToken = null
         inMemoryUserId = 1
@@ -96,6 +111,8 @@ object SessionManager {
         inMemoryLastAudioId = null
         inMemoryLastAudioTitle = null
         inMemoryLastAudioDuration = null
+        inMemoryLastTranscriptionId = null
+        inMemoryLastGeneratedNote = null
 
         context?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.clear()?.apply()
     }

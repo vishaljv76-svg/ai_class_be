@@ -2,7 +2,8 @@ package com.example.Simtas.ui.notes
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.Simtas.data.repository.NotesRepositoryImpl
+import com.example.Simtas.data.remote.SessionManager
+import com.example.Simtas.data.repository.AiNotesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +17,22 @@ class GeneratedNotesViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(GeneratedNotesUiState())
     val uiState: StateFlow<GeneratedNotesUiState> = _uiState.asStateFlow()
+
+    init {
+        loadGeneratedNotes()
+    }
+
+    fun loadGeneratedNotes() {
+        val cachedNote = SessionManager.getLastGeneratedNote()
+        if (cachedNote != null) {
+            _uiState.value = cachedNote
+        } else {
+            val lastTitle = SessionManager.getLastUploadedAudioTitle()
+            if (!lastTitle.isNullOrBlank()) {
+                _uiState.update { it.copy(lectureTitle = lastTitle) }
+            }
+        }
+    }
 
     fun onViewFullNotesClicked() {
         // Open full notes view
@@ -32,15 +49,19 @@ class GeneratedNotesViewModel : ViewModel() {
     fun onSaveNotesClicked(onSuccess: (String?) -> Unit = {}) {
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
-            val noteId = NotesRepositoryImpl.createNote(
-                title = _uiState.value.lectureTitle,
-                subject = _uiState.value.subjectBadge,
-                summary = _uiState.value.aiSummaryText,
-                keyTakeaways = _uiState.value.keyTakeaways,
-                importantTerms = _uiState.value.importantTerms
+            val tid = SessionManager.getLastTranscriptionId()
+            val result = AiNotesRepository.saveGeneratedNote(
+                transcriptionId = tid,
+                uiState = _uiState.value
             )
-            _uiState.update { it.copy(isLoading = false, isSaved = true) }
-            onSuccess(noteId)
+
+            if (result.isSuccess) {
+                _uiState.update { it.copy(isLoading = false, isSaved = true) }
+                onSuccess(result.noteId)
+            } else {
+                _uiState.update { it.copy(isLoading = false) }
+                onSuccess(null)
+            }
         }
     }
 }

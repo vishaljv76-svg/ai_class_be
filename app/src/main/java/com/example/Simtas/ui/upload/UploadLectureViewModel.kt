@@ -7,6 +7,8 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.Simtas.data.repository.AudioRepository
+import com.example.Simtas.data.remote.SessionManager
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -156,23 +158,45 @@ class UploadLectureViewModel : ViewModel() {
 
                 uploadJob = viewModelScope.launch(Dispatchers.IO) {
                     try {
-                        val totalSteps = 100
-                        for (step in 1..totalSteps) {
-                            delay(25) // Smooth realistic upload progression
-                            val uploadedBytes = if (fileSize > 0) (fileSize * step) / 100 else 0L
-                            val uploadedStr = formatFileSize(uploadedBytes)
-                            val progressText = if (step < 100) {
-                                if (sizeText.isNotEmpty()) "Uploading · $uploadedStr of $sizeText" else "Uploading · $step%"
-                            } else {
-                                if (sizeText.isNotEmpty()) "Upload complete · $sizeText" else "Upload complete"
+                        val uploadResult = AudioRepository.uploadAudio(
+                            context = context,
+                            uri = uri,
+                            fileName = fileName,
+                            fileSize = fileSize,
+                            title = fileName.substringBeforeLast('.'),
+                            duration = durationText,
+                            onProgress = { bytesSent, totalBytes ->
+                                val percent = if (totalBytes > 0) ((bytesSent * 100) / totalBytes).toInt().coerceIn(0, 99) else 0
+                                val uploadedStr = formatFileSize(bytesSent)
+                                val progressText = if (sizeText.isNotEmpty()) "Uploading · $uploadedStr of $sizeText" else "Uploading · $percent%"
+                                _uiState.update {
+                                    it.copy(
+                                        uploadProgressPercent = percent,
+                                        uploadedBytesText = progressText,
+                                        isUploading = true,
+                                        isUploadComplete = false
+                                    )
+                                }
                             }
+                        )
 
+                        if (uploadResult.isSuccess && uploadResult.audioId != null) {
                             _uiState.update {
                                 it.copy(
-                                    uploadProgressPercent = step,
-                                    uploadedBytesText = progressText,
-                                    isUploading = step < 100,
-                                    isUploadComplete = step == 100
+                                    uploadProgressPercent = 100,
+                                    uploadedBytesText = if (sizeText.isNotEmpty()) "Upload complete · $sizeText" else "Upload complete",
+                                    isUploading = false,
+                                    isUploadComplete = true,
+                                    uploadedAudioId = uploadResult.audioId,
+                                    errorMessage = null
+                                )
+                            }
+                        } else {
+                            _uiState.update {
+                                it.copy(
+                                    isUploading = false,
+                                    isUploadComplete = false,
+                                    errorMessage = uploadResult.message ?: "Upload failed on server"
                                 )
                             }
                         }

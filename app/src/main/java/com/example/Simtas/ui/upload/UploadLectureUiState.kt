@@ -14,5 +14,6 @@ data class UploadLectureUiState(
     val isUploadComplete: Boolean = false,
     val isFileSelected: Boolean = false,
     val selectedFileUri: Uri? = null,
+    val uploadedAudioId: Int? = null,
     val errorMessage: String? = null
 )

@@ -1,6 +1,7 @@
 package com.example.Simtas.ui.preview
 
 import androidx.lifecycle.ViewModel
+import com.example.Simtas.data.remote.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,6 +14,13 @@ class LecturePreviewViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(LecturePreviewUiState())
     val uiState: StateFlow<LecturePreviewUiState> = _uiState.asStateFlow()
+
+    init {
+        val lastTitle = SessionManager.getLastUploadedAudioTitle()
+        if (!lastTitle.isNullOrBlank()) {
+            _uiState.update { it.copy(lectureTitle = lastTitle) }
+        }
+    }
 
     fun onLectureTitleChanged(title: String) {
         _uiState.update { it.copy(lectureTitle = title) }

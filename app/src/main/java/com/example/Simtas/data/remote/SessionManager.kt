@@ -19,6 +19,9 @@ object SessionManager {
     private var inMemoryUserName: String = "Alex Morgan"
     private var inMemoryUserEmail: String = "alex.morgan@campus.edu"
     private var inMemoryPhotoPath: String? = null
+    private var inMemoryLastAudioId: Int? = null
+    private var inMemoryLastAudioTitle: String? = null
+    private var inMemoryLastAudioDuration: String? = null
 
     fun init(context: Context) {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
@@ -72,12 +75,27 @@ object SessionManager {
 
     fun isLoggedIn(): Boolean = !inMemoryToken.isNullOrEmpty()
 
+    fun setLastUploadedAudio(audioId: Int, title: String? = null, duration: String? = null) {
+        inMemoryLastAudioId = audioId
+        inMemoryLastAudioTitle = title
+        inMemoryLastAudioDuration = duration
+    }
+
+    fun getLastUploadedAudioId(): Int? = inMemoryLastAudioId
+
+    fun getLastUploadedAudioTitle(): String? = inMemoryLastAudioTitle
+
+    fun getLastUploadedAudioDuration(): String? = inMemoryLastAudioDuration
+
     fun clearSession(context: Context?) {
         inMemoryToken = null
         inMemoryUserId = 1
         inMemoryUserName = "Alex Morgan"
         inMemoryUserEmail = "alex.morgan@campus.edu"
         inMemoryPhotoPath = null
+        inMemoryLastAudioId = null
+        inMemoryLastAudioTitle = null
+        inMemoryLastAudioDuration = null
 
         context?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.clear()?.apply()
     }

@@ -20,6 +20,15 @@ class LecturePreviewViewModel : ViewModel() {
         if (!lastTitle.isNullOrBlank()) {
             _uiState.update { it.copy(lectureTitle = lastTitle) }
         }
+        val lastDuration = SessionManager.getLastUploadedAudioDuration()
+        if (!lastDuration.isNullOrBlank()) {
+            _uiState.update {
+                it.copy(
+                    totalTimeText = lastDuration,
+                    dateDurationCodeText = "Recorded · $lastDuration · CS301"
+                )
+            }
+        }
     }
 
     fun onLectureTitleChanged(title: String) {

@@ -24,6 +24,7 @@ object SessionManager {
     private var inMemoryLastAudioId: Int? = null
     private var inMemoryLastAudioTitle: String? = null
     private var inMemoryLastAudioDuration: String? = null
+    private var inMemoryLastRecordedAudioPath: String? = null
     private var inMemoryLastTranscriptionId: Int? = null
     private var inMemoryLastGeneratedNote: GeneratedNotesUiState? = null
     private var inMemoryLastJobId: Int? = null
@@ -99,6 +100,12 @@ object SessionManager {
     fun getLastUploadedAudioTitle(): String? = inMemoryLastAudioTitle
 
     fun getLastUploadedAudioDuration(): String? = inMemoryLastAudioDuration
+
+    fun setLastRecordedAudioPath(path: String?) {
+        inMemoryLastRecordedAudioPath = path
+    }
+
+    fun getLastRecordedAudioPath(): String? = inMemoryLastRecordedAudioPath
 
     fun setLastTranscriptionId(transcriptionId: Int) {
         inMemoryLastTranscriptionId = transcriptionId

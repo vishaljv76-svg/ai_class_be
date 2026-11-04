@@ -41,7 +41,7 @@ object WhisperModelManager {
     // Estimated total byte size (~98.8 MB)
     const val ESTIMATED_TOTAL_BYTES = 103_609_903L
 
-    fun getModelDir(context: Context): File {
+    private fun getInternalModelDir(context: Context): File {
         val dir = File(context.filesDir, MODEL_SUBDIR)
         if (!dir.exists()) {
             dir.mkdirs()
@@ -49,11 +49,17 @@ object WhisperModelManager {
         return dir
     }
 
-    /**
-     * Checks if all required Whisper model files are installed and valid in app-private storage.
-     */
-    fun isModelInstalled(context: Context): Boolean {
-        val dir = getModelDir(context)
+    private fun getExternalModelDir(context: Context): File? {
+        return try {
+            val base = context.getExternalFilesDir(null) ?: return null
+            File(base, MODEL_SUBDIR)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun isDirValid(dir: File?): Boolean {
+        if (dir == null || !dir.exists()) return false
         val encoder = File(dir, ENCODER_FILE)
         val decoder = File(dir, DECODER_FILE)
         val tokens = File(dir, TOKENS_FILE)
@@ -63,14 +69,40 @@ object WhisperModelManager {
                 tokens.exists() && tokens.length() > 100_000L
     }
 
+    fun getModelDir(context: Context): File {
+        val ext = getExternalModelDir(context)
+        if (ext != null && isDirValid(ext)) {
+            return ext
+        }
+        return getInternalModelDir(context)
+    }
+
+    /**
+     * Checks if all required Whisper model files are installed and valid in app-private storage
+     * (either internal filesDir or external app filesDir).
+     */
+    fun isModelInstalled(context: Context): Boolean {
+        return isDirValid(getInternalModelDir(context)) || isDirValid(getExternalModelDir(context))
+    }
+
     fun getModelFiles(context: Context): WhisperModelFiles? {
-        if (!isModelInstalled(context)) return null
-        val dir = getModelDir(context)
-        return WhisperModelFiles(
-            encoder = File(dir, ENCODER_FILE),
-            decoder = File(dir, DECODER_FILE),
-            tokens = File(dir, TOKENS_FILE)
-        )
+        val intDir = getInternalModelDir(context)
+        if (isDirValid(intDir)) {
+            return WhisperModelFiles(
+                encoder = File(intDir, ENCODER_FILE),
+                decoder = File(intDir, DECODER_FILE),
+                tokens = File(intDir, TOKENS_FILE)
+            )
+        }
+        val extDir = getExternalModelDir(context)
+        if (extDir != null && isDirValid(extDir)) {
+            return WhisperModelFiles(
+                encoder = File(extDir, ENCODER_FILE),
+                decoder = File(extDir, DECODER_FILE),
+                tokens = File(extDir, TOKENS_FILE)
+            )
+        }
+        return null
     }
 
     fun getAvailableDiskSpaceBytes(context: Context): Long {
@@ -108,6 +140,19 @@ object WhisperModelManager {
         context: Context,
         onProgress: ((ModelDownloadProgress) -> Unit)? = null
     ): Result<WhisperModelFiles> = withContext(Dispatchers.IO) {
+        if (isModelInstalled(context)) {
+            val installed = getModelFiles(context)!!
+            onProgress?.invoke(
+                ModelDownloadProgress(
+                    percentage = 100,
+                    downloadedBytes = ESTIMATED_TOTAL_BYTES,
+                    totalBytes = ESTIMATED_TOTAL_BYTES,
+                    statusMessage = "Offline speech model installed and ready."
+                )
+            )
+            return@withContext Result.success(installed)
+        }
+
         val targetDir = getModelDir(context)
 
         // Check storage space (at least 150 MB free required)

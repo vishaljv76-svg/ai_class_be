@@ -83,3 +83,4 @@ class RecordLectureViewModelTest {
         assertTrue(stoppedValidState.status == RecordingStatus.STOPPED && stoppedValidState.recordedFilePath != null && stoppedValidState.fileSizeBytes > 0L)
     }
 }
+

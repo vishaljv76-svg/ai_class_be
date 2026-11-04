@@ -25,6 +25,8 @@ object SessionManager {
     private var inMemoryLastAudioTitle: String? = null
     private var inMemoryLastAudioDuration: String? = null
     private var inMemoryLastRecordedAudioPath: String? = null
+    private var inMemoryLastTranscriptText: String? = null
+    private var inMemoryLastTranscriptParagraphs: List<com.example.Simtas.ui.transcript.TranscriptParagraph> = emptyList()
     private var inMemoryLastTranscriptionId: Int? = null
     private var inMemoryLastGeneratedNote: GeneratedNotesUiState? = null
     private var inMemoryLastJobId: Int? = null
@@ -112,6 +114,15 @@ object SessionManager {
     }
 
     fun getLastTranscriptionId(): Int? = inMemoryLastTranscriptionId
+
+    fun setLastTranscription(fullText: String?, paragraphs: List<com.example.Simtas.ui.transcript.TranscriptParagraph> = emptyList()) {
+        inMemoryLastTranscriptText = fullText
+        inMemoryLastTranscriptParagraphs = paragraphs
+    }
+
+    fun getLastTranscriptionText(): String? = inMemoryLastTranscriptText
+
+    fun getLastTranscriptionParagraphs(): List<com.example.Simtas.ui.transcript.TranscriptParagraph> = inMemoryLastTranscriptParagraphs
 
     fun setLastGeneratedNote(note: GeneratedNotesUiState?) {
         inMemoryLastGeneratedNote = note

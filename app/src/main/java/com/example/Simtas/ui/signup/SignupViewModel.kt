@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.signup
+﻿package com.example.Simtas.ui.signup
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

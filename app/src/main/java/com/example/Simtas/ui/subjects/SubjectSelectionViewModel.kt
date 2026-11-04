@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.subjects
+﻿package com.example.Simtas.ui.subjects
 
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -31,7 +31,12 @@ class DetailedNotesViewModel : ViewModel() {
             if (note != null) {
                 _uiState.value = note
             } else {
-                _uiState.update { it.copy(isLoading = false) }
+                val sessionDetailed = com.example.Simtas.data.remote.SessionManager.getLastDetailedNotes()
+                if (sessionDetailed != null) {
+                    _uiState.value = sessionDetailed
+                } else {
+                    _uiState.update { it.copy(isLoading = false) }
+                }
             }
         }
     }

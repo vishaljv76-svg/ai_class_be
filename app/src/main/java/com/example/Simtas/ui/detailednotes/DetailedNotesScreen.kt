@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.detailednotes
+﻿package com.example.Simtas.ui.detailednotes
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background

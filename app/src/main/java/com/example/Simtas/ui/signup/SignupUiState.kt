@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.signup
+﻿package com.example.Simtas.ui.signup
 
 /**
  * UI State for the Create Account (Sign Up) Screen following MVVM architecture.

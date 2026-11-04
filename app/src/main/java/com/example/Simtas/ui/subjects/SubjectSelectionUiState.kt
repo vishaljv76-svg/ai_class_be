@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.subjects
+﻿package com.example.Simtas.ui.subjects
 
 enum class SubjectIconType {
     ComputerScience,

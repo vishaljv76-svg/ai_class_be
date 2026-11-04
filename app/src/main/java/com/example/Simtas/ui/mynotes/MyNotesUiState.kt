@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.mynotes
+﻿package com.example.Simtas.ui.mynotes
 
 import com.example.Simtas.ui.home.HomeBottomTab
 import com.example.Simtas.ui.home.RecentNoteIconType

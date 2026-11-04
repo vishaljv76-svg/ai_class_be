@@ -66,6 +66,10 @@ fun GeneratedNotesScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.loadGeneratedNotes()
+    }
+
     GeneratedNotesScreenContent(
         uiState = uiState,
         modifier = modifier,

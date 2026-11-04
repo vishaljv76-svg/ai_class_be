@@ -56,6 +56,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.Simtas.data.remote.SessionManager
 import com.example.Simtas.ui.theme.AIBasedClassNotesAppTheme
 import com.example.Simtas.ui.theme.InnerCircleBg
 import com.example.Simtas.ui.theme.PurplePrimary
@@ -80,7 +81,7 @@ fun RecordLectureScreen(
     onBackClick: () -> Unit = {},
     onMoreOptionsClick: () -> Unit = {},
     onStopRecordingClick: () -> Unit = {},
-    onNextClick: () -> Unit = onStopRecordingClick
+    onNextClick: (String) -> Unit = { onStopRecordingClick() }
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -127,7 +128,10 @@ fun RecordLectureScreen(
         onStopClick = {
             viewModel.onStopClicked(context)
         },
-        onNextClick = onNextClick,
+        onNextClick = {
+            val path = uiState.recordedFilePath ?: SessionManager.getLastRecordedAudioPath() ?: ""
+            onNextClick(path)
+        },
         onMicCircleClick = {
             when (uiState.status) {
                 RecordingStatus.IDLE, RecordingStatus.STOPPED -> handleStartRecording()

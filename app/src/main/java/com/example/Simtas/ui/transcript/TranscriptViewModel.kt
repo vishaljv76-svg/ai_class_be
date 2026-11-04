@@ -59,13 +59,26 @@ class TranscriptViewModel : ViewModel() {
         resolveAudioFile()
     }
 
-    fun initContext(context: Context) {
+    fun initContext(context: Context, explicitPath: String? = null) {
         val installed = WhisperModelManager.isModelInstalled(context)
         _uiState.update { it.copy(isModelInstalled = installed) }
-        resolveAudioFile(context)
+        resolveAudioFile(context, explicitPath)
     }
 
-    private fun resolveAudioFile(context: Context? = null) {
+    private fun resolveAudioFile(context: Context? = null, explicitPath: String? = null) {
+        if (!explicitPath.isNullOrBlank()) {
+            val file = File(explicitPath)
+            if (file.exists() && file.length() > 0L) {
+                SessionManager.setLastRecordedAudioPath(file.absolutePath)
+                _uiState.update {
+                    it.copy(
+                        hasAudioFile = true,
+                        audioFilePath = file.absolutePath
+                    )
+                }
+                return
+            }
+        }
         val sessionPath = SessionManager.getLastRecordedAudioPath()
         if (!sessionPath.isNullOrBlank()) {
             val file = File(sessionPath)

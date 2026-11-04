@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.theme
+﻿package com.example.Simtas.ui.theme
 
 import android.content.Context
 import android.content.res.Configuration

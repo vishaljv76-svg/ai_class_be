@@ -1,4 +1,4 @@
-package com.example.Simtas.data.remote
+﻿package com.example.Simtas.data.remote
 
 /**
  * Centralized API configuration for SmartNotes AI.

@@ -29,6 +29,7 @@ object SessionManager {
     private var inMemoryLastTranscriptParagraphs: List<com.example.Simtas.ui.transcript.TranscriptParagraph> = emptyList()
     private var inMemoryLastTranscriptionId: Int? = null
     private var inMemoryLastGeneratedNote: GeneratedNotesUiState? = null
+    private var inMemoryLastDetailedNotes: com.example.Simtas.ui.detailednotes.DetailedNotesUiState? = null
     private var inMemoryLastJobId: Int? = null
     private var inMemoryLastNoteId: Int? = null
     private var inMemoryLastQuizId: Int? = null
@@ -138,6 +139,12 @@ object SessionManager {
     }
 
     fun getLastGeneratedNote(): GeneratedNotesUiState? = inMemoryLastGeneratedNote
+
+    fun setLastDetailedNotes(notes: com.example.Simtas.ui.detailednotes.DetailedNotesUiState?) {
+        inMemoryLastDetailedNotes = notes
+    }
+
+    fun getLastDetailedNotes(): com.example.Simtas.ui.detailednotes.DetailedNotesUiState? = inMemoryLastDetailedNotes
 
     fun setLastJobId(jobId: Int?) {
         inMemoryLastJobId = jobId

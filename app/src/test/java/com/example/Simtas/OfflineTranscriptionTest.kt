@@ -177,4 +177,59 @@ class OfflineTranscriptionTest {
         assertEquals(1, SessionManager.getLastTranscriptionParagraphs().size)
         assertEquals("01:15", SessionManager.getLastTranscriptionParagraphs()[0].timestamp)
     }
+
+    @Test
+    fun lectureNotesGenerator_extractsRealNotesAndSummary() {
+        val transcript = "Database normalization is defined as the process of organizing data in a database. " +
+                "First normal form requires atomic values in each table cell. " +
+                "Second normal form removes partial functional dependencies. " +
+                "Third normal form eliminates transitive dependencies. " +
+                "In conclusion, proper normalization prevents update anomalies and reduces redundant storage."
+
+        val paras = listOf(
+            TranscriptParagraph("00:00", "Prof. Sarah Chen", transcript)
+        )
+
+        val result = com.example.Simtas.data.ml.LectureNotesGenerator.generate(
+            transcriptText = transcript,
+            paragraphs = paras,
+            lectureTitle = "Database Normalization",
+            subject = "Computer Science",
+            durationText = "05:00"
+        )
+
+        val notes = result.generatedNotes
+        val detailed = result.detailedNotes
+
+        assertEquals("Database Normalization", notes.lectureTitle)
+        assertEquals("Computer Science", notes.subjectBadge)
+        assertTrue("Summary contains overview", notes.aiSummaryText.contains("Database normalization"))
+        assertTrue("Key takeaways extracted", notes.keyTakeaways.isNotEmpty())
+        assertTrue("Key definitions extracted", notes.importantTerms.isNotEmpty())
+        assertTrue("Detailed section 1 present", detailed.section1Content.isNotBlank())
+        assertTrue("Detailed section 2 bullets present", detailed.section2Bullets.isNotEmpty())
+
+        // Ensure session manager persistence
+        SessionManager.setLastGeneratedNote(notes)
+        SessionManager.setLastDetailedNotes(detailed)
+        assertEquals(notes, SessionManager.getLastGeneratedNote())
+        assertEquals(detailed, SessionManager.getLastDetailedNotes())
+    }
+
+    @Test
+    fun lecturePreviewUiState_retainsAudioMetadata() {
+        val state = com.example.Simtas.ui.preview.LecturePreviewUiState(
+            lectureTitle = "Operating Systems",
+            audioFileName = "lecture_rec_20261104.m4a",
+            audioFilePath = "/path/to/lecture_rec_20261104.m4a",
+            fileSizeBytes = 2048000L,
+            hasAudioFile = true,
+            totalTimeText = "03:45"
+        )
+
+        assertEquals("Operating Systems", state.lectureTitle)
+        assertEquals("lecture_rec_20261104.m4a", state.audioFileName)
+        assertTrue(state.hasAudioFile)
+        assertEquals(2048000L, state.fileSizeBytes)
+    }
 }

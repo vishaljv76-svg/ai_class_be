@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.quizquestion
+﻿package com.example.Simtas.ui.quizquestion
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background

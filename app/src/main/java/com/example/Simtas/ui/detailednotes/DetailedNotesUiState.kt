@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.detailednotes
+﻿package com.example.Simtas.ui.detailednotes
 
 /**
  * UI State for Detailed Notes Screen following MVVM architecture.

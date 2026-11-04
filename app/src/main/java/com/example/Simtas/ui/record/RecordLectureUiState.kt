@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.record
+﻿package com.example.Simtas.ui.record
 
 enum class RecordingStatus {
     IDLE,

@@ -70,6 +70,7 @@ val MiniStripBg = Color(0xFFF1EDFE)
 @Composable
 fun TranscriptScreen(
     modifier: Modifier = Modifier,
+    audioPath: String? = null,
     viewModel: TranscriptViewModel = remember { TranscriptViewModel() },
     onBackClick: () -> Unit = {},
     onMoreOptionsClick: () -> Unit = {},
@@ -78,8 +79,8 @@ fun TranscriptScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    LaunchedEffect(Unit) {
-        viewModel.initContext(context)
+    LaunchedEffect(audioPath) {
+        viewModel.initContext(context, audioPath)
     }
 
     TranscriptScreenContent(

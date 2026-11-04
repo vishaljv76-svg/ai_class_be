@@ -65,6 +65,10 @@ fun CreateSmartNotesScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.startNotesGeneration()
+    }
+
     CreateSmartNotesScreenContent(
         uiState = uiState,
         modifier = modifier,

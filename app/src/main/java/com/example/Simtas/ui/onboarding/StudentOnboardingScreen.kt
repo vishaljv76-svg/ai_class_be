@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.onboarding
+﻿package com.example.Simtas.ui.onboarding
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background

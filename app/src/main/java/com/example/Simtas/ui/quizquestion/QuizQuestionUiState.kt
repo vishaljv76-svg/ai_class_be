@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.quizquestion
+﻿package com.example.Simtas.ui.quizquestion
 
 data class QuizOptionItem(
     val optionKey: String,

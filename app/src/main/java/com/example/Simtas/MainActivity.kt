@@ -117,6 +117,7 @@ fun MainAppNavigation() {
     val coroutineScope = rememberCoroutineScope()
     var currentScreen by remember { mutableStateOf(AppScreen.Splash) }
     var selectedNoteId by remember { mutableStateOf("1") }
+    var activeRecordedAudioPath by remember { mutableStateOf<String?>(null) }
 
     // Dynamic back navigation trackers
     var previousScreenForNotes by remember { mutableStateOf(AppScreen.HomeDashboard) }
@@ -271,6 +272,11 @@ fun MainAppNavigation() {
                     showDiscardRecordDialog = true
                 },
                 onStopRecordingClick = {
+                    activeRecordedAudioPath = SessionManager.getLastRecordedAudioPath()
+                    currentScreen = AppScreen.LecturePreview
+                },
+                onNextClick = { path ->
+                    activeRecordedAudioPath = path.ifBlank { SessionManager.getLastRecordedAudioPath() }
                     currentScreen = AppScreen.LecturePreview
                 }
             )
@@ -281,12 +287,14 @@ fun MainAppNavigation() {
                     currentScreen = AppScreen.HomeDashboard
                 },
                 onContinueClick = {
+                    activeRecordedAudioPath = SessionManager.getLastRecordedAudioPath()
                     currentScreen = AppScreen.LecturePreview
                 }
             )
         }
         AppScreen.LecturePreview -> {
             LecturePreviewScreen(
+                audioPath = activeRecordedAudioPath ?: SessionManager.getLastRecordedAudioPath(),
                 onBackClick = {
                     currentScreen = AppScreen.HomeDashboard
                 },
@@ -300,6 +308,7 @@ fun MainAppNavigation() {
         }
         AppScreen.Transcript -> {
             TranscriptScreen(
+                audioPath = activeRecordedAudioPath ?: SessionManager.getLastRecordedAudioPath(),
                 onBackClick = {
                     currentScreen = AppScreen.LecturePreview
                 },

@@ -65,17 +65,32 @@ val PlayerCardBg = Color(0xFFF1EDFE)
 @Composable
 fun LecturePreviewScreen(
     modifier: Modifier = Modifier,
+    audioPath: String? = null,
     viewModel: LecturePreviewViewModel = remember { LecturePreviewViewModel() },
     onBackClick: () -> Unit = {},
     onMoreOptionsClick: () -> Unit = {},
     onGenerateTranscriptClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    androidx.compose.runtime.LaunchedEffect(audioPath) {
+        viewModel.loadAudio(audioPath, context)
+    }
+
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose {
+            viewModel.onScreenDisposed()
+        }
+    }
 
     LecturePreviewScreenContent(
         uiState = uiState,
         modifier = modifier,
-        onBackClick = onBackClick,
+        onBackClick = {
+            viewModel.onScreenDisposed()
+            onBackClick()
+        },
         onMoreOptionsClick = onMoreOptionsClick,
         onLectureTitleChange = viewModel::onLectureTitleChanged,
         onSubjectSelect = viewModel::onSubjectSelected,
@@ -127,6 +142,24 @@ fun LecturePreviewScreenContent(
                     onBackClick = onBackClick,
                     onMoreOptionsClick = onMoreOptionsClick
                 )
+
+                if (!uiState.errorMessage.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFFFEE2E2))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = uiState.errorMessage,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFFDC2626)
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(20.dp))
 

@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.theme
+﻿package com.example.Simtas.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

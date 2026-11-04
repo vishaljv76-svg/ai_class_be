@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.quiz
+﻿package com.example.Simtas.ui.quiz
 
 enum class QuestionType {
     MCQ,

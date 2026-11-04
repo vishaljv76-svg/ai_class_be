@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.welcome
+﻿package com.example.Simtas.ui.welcome
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image

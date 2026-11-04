@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.transcript
+﻿package com.example.Simtas.ui.transcript
 
 import com.example.Simtas.data.ml.OfflineSpeechRecognizer
 

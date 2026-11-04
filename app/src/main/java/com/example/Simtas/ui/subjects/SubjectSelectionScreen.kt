@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.subjects
+﻿package com.example.Simtas.ui.subjects
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background

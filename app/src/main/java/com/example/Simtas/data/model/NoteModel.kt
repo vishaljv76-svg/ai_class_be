@@ -1,4 +1,4 @@
-package com.example.Simtas.data.model
+﻿package com.example.Simtas.data.model
 
 /**
  * Data model representing a class note.

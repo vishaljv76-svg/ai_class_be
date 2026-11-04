@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.record
+﻿package com.example.Simtas.ui.record
 
 import android.Manifest
 import android.content.Context

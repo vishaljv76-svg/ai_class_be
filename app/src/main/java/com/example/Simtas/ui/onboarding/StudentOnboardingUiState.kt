@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.onboarding
+﻿package com.example.Simtas.ui.onboarding
 
 /**
  * UI State for Student Onboarding ("Your study profile") Screen following MVVM architecture.

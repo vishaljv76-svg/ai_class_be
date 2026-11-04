@@ -57,6 +57,7 @@ class CreateSmartNotesViewModel : ViewModel() {
             )
 
             if (result.isSuccess && result.notesUiState != null) {
+                SessionManager.setLastGeneratedNote(result.notesUiState)
                 _uiState.update {
                     it.copy(
                         currentStepText = "Notes ready!",
@@ -67,15 +68,30 @@ class CreateSmartNotesViewModel : ViewModel() {
                     )
                 }
             } else {
-                // If live AI is unconfigured or returns status, finish step smoothly
+                // Generate real notes & summary from actual transcript
+                val transcriptText = SessionManager.getLastTranscriptionText() ?: ""
+                val paragraphs = SessionManager.getLastTranscriptionParagraphs()
+                val duration = SessionManager.getLastUploadedAudioDuration() ?: "Recorded Lecture"
+
+                val extractive = com.example.Simtas.data.ml.LectureNotesGenerator.generate(
+                    transcriptText = transcriptText,
+                    paragraphs = paragraphs,
+                    lectureTitle = audioTitle,
+                    subject = "Computer Science",
+                    durationText = duration
+                )
+
+                SessionManager.setLastGeneratedNote(extractive.generatedNotes)
+                SessionManager.setLastDetailedNotes(extractive.detailedNotes)
+
                 _uiState.update {
                     it.copy(
-                        currentStepText = "Notes structured",
+                        currentStepText = "Notes ready!",
                         progressPercent = 100,
-                        progressStatusText = "Transcript organized · Ready to review and save",
+                        progressStatusText = "Extracted lecture summary & takeaways ready to review",
                         isGenerating = false,
                         isGenerationComplete = true,
-                        errorMessage = result.message
+                        errorMessage = null
                     )
                 }
             }

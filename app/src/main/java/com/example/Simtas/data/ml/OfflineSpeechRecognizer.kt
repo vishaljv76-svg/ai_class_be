@@ -1,4 +1,4 @@
-package com.example.Simtas.data.ml
+﻿package com.example.Simtas.data.ml
 
 import android.content.Context
 import com.example.Simtas.ui.transcript.TranscriptParagraph

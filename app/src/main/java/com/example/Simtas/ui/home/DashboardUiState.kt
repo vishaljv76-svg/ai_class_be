@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.home
+﻿package com.example.Simtas.ui.home
 
 enum class RecentNoteIconType {
     Database,

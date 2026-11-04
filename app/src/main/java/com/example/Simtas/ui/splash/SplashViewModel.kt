@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.splash
+﻿package com.example.Simtas.ui.splash
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

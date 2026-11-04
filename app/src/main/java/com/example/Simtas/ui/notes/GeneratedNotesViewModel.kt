@@ -27,8 +27,23 @@ class GeneratedNotesViewModel : ViewModel() {
         if (cachedNote != null) {
             _uiState.value = cachedNote
         } else {
-            val lastTitle = SessionManager.getLastUploadedAudioTitle()
-            if (!lastTitle.isNullOrBlank()) {
+            val transcriptText = SessionManager.getLastTranscriptionText() ?: ""
+            val paragraphs = SessionManager.getLastTranscriptionParagraphs()
+            val lastTitle = SessionManager.getLastUploadedAudioTitle() ?: "Lecture Notes"
+            val lastDuration = SessionManager.getLastUploadedAudioDuration() ?: "Recorded"
+
+            if (transcriptText.isNotBlank() || paragraphs.isNotEmpty()) {
+                val extractive = com.example.Simtas.data.ml.LectureNotesGenerator.generate(
+                    transcriptText = transcriptText,
+                    paragraphs = paragraphs,
+                    lectureTitle = lastTitle,
+                    subject = "Computer Science",
+                    durationText = lastDuration
+                )
+                SessionManager.setLastGeneratedNote(extractive.generatedNotes)
+                SessionManager.setLastDetailedNotes(extractive.detailedNotes)
+                _uiState.value = extractive.generatedNotes
+            } else {
                 _uiState.update { it.copy(lectureTitle = lastTitle) }
             }
         }

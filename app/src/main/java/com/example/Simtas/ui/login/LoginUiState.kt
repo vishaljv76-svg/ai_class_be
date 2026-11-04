@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.login
+﻿package com.example.Simtas.ui.login
 
 /**
  * UI State for the Login Screen following MVVM architecture.

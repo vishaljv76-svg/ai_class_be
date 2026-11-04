@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.welcome
+﻿package com.example.Simtas.ui.welcome
 
 /**
  * UI State for the Welcome/Onboarding Screen following MVVM architecture.

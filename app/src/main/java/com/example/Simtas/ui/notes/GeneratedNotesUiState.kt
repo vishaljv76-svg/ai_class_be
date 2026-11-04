@@ -1,4 +1,4 @@
-package com.example.Simtas.ui.notes
+﻿package com.example.Simtas.ui.notes
 
 /**
  * Verified educational reference or textbook discovered for this lecture.

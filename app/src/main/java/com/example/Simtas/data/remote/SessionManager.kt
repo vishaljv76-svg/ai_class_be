@@ -25,6 +25,11 @@ object SessionManager {
     private var inMemoryLastAudioDuration: String? = null
     private var inMemoryLastTranscriptionId: Int? = null
     private var inMemoryLastGeneratedNote: GeneratedNotesUiState? = null
+    private var inMemoryLastJobId: Int? = null
+    private var inMemoryLastNoteId: Int? = null
+    private var inMemoryLastQuizId: Int? = null
+    private var inMemoryDiscoveredResources: List<com.example.Simtas.ui.notes.DiscoveredResourceItem> = emptyList()
+    private var inMemoryLastQuizResult: com.example.Simtas.ui.quizresults.QuizResultsUiState? = null
 
     fun init(context: Context) {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
@@ -98,9 +103,48 @@ object SessionManager {
 
     fun setLastGeneratedNote(note: GeneratedNotesUiState?) {
         inMemoryLastGeneratedNote = note
+        if (note?.noteId != null) {
+            inMemoryLastNoteId = note.noteId
+        }
+        if (note?.quizId != null) {
+            inMemoryLastQuizId = note.quizId
+        }
+        if (note != null && note.educationalResources.isNotEmpty()) {
+            inMemoryDiscoveredResources = note.educationalResources
+        }
     }
 
     fun getLastGeneratedNote(): GeneratedNotesUiState? = inMemoryLastGeneratedNote
+
+    fun setLastJobId(jobId: Int?) {
+        inMemoryLastJobId = jobId
+    }
+
+    fun getLastJobId(): Int? = inMemoryLastJobId
+
+    fun setLastNoteId(noteId: Int?) {
+        inMemoryLastNoteId = noteId
+    }
+
+    fun getLastNoteId(): Int? = inMemoryLastNoteId
+
+    fun setLastQuizId(quizId: Int?) {
+        inMemoryLastQuizId = quizId
+    }
+
+    fun getLastQuizId(): Int? = inMemoryLastQuizId
+
+    fun setDiscoveredResources(resources: List<com.example.Simtas.ui.notes.DiscoveredResourceItem>) {
+        inMemoryDiscoveredResources = resources
+    }
+
+    fun getDiscoveredResources(): List<com.example.Simtas.ui.notes.DiscoveredResourceItem> = inMemoryDiscoveredResources
+
+    fun setLastQuizResult(result: com.example.Simtas.ui.quizresults.QuizResultsUiState?) {
+        inMemoryLastQuizResult = result
+    }
+
+    fun getLastQuizResult(): com.example.Simtas.ui.quizresults.QuizResultsUiState? = inMemoryLastQuizResult
 
     fun clearSession(context: Context?) {
         inMemoryToken = null
@@ -113,6 +157,11 @@ object SessionManager {
         inMemoryLastAudioDuration = null
         inMemoryLastTranscriptionId = null
         inMemoryLastGeneratedNote = null
+        inMemoryLastJobId = null
+        inMemoryLastNoteId = null
+        inMemoryLastQuizId = null
+        inMemoryDiscoveredResources = emptyList()
+        inMemoryLastQuizResult = null
 
         context?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.clear()?.apply()
     }

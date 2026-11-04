@@ -181,6 +181,11 @@ class UploadLectureViewModel : ViewModel() {
                         )
 
                         if (uploadResult.isSuccess && uploadResult.audioId != null) {
+                            // Immediately kick off backend automated pipeline processing
+                            try {
+                                com.example.Simtas.data.repository.JobRepository.startLectureProcessing(uploadResult.audioId)
+                            } catch (_: Exception) {}
+
                             _uiState.update {
                                 it.copy(
                                     uploadProgressPercent = 100,

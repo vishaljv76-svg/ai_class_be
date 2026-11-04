@@ -1,9 +1,24 @@
 package com.example.Simtas.ui.notes
 
 /**
+ * Verified educational reference or textbook discovered for this lecture.
+ */
+data class DiscoveredResourceItem(
+    val id: Int = 0,
+    val title: String,
+    val url: String,
+    val source: String = "Web",
+    val topic: String? = null,
+    val snippet: String? = null,
+    val isVerified: Boolean = true
+)
+
+/**
  * UI State for Generated Notes Screen following MVVM architecture.
  */
 data class GeneratedNotesUiState(
+    val noteId: Int? = null,
+    val quizId: Int? = null,
     val subjectBadge: String = "Computer Science",
     val lectureTitle: String = "Database Normalization",
     val metadataText: String = "21 Oct 2026 · 42 min 18 sec · CS301",
@@ -18,6 +33,7 @@ data class GeneratedNotesUiState(
         "Composite key",
         "Normal forms"
     ),
+    val educationalResources: List<DiscoveredResourceItem> = emptyList(),
     val isSaved: Boolean = false,
     val isLoading: Boolean = false
 )

@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.upload
+package com.example.Simtas.ui.upload
 
 import android.content.Context
 import android.content.Intent
@@ -154,6 +154,26 @@ class UploadLectureViewModel : ViewModel() {
                         uploadedBytesText = if (sizeText.isNotEmpty()) "Uploading · 0.0 of $sizeText" else "Uploading...",
                         errorMessage = null
                     )
+                }
+
+                // Cache a local copy so Lecture Preview and Offline Speech Recognizer can access it directly
+                withContext(Dispatchers.IO) {
+                    try {
+                        val recDir = java.io.File(context.filesDir, "recordings")
+                        if (!recDir.exists()) recDir.mkdirs()
+                        val localCopy = java.io.File(recDir, fileName)
+                        context.contentResolver.openInputStream(uri)?.use { input ->
+                            java.io.FileOutputStream(localCopy).use { out -> input.copyTo(out) }
+                        }
+                        if (localCopy.exists() && localCopy.length() > 0L) {
+                            SessionManager.setLastRecordedAudioPath(localCopy.absolutePath)
+                            SessionManager.setLastUploadedAudio(
+                                audioId = SessionManager.getLastUploadedAudioId() ?: 0,
+                                title = fileName.substringBeforeLast('.'),
+                                duration = durationText
+                            )
+                        }
+                    } catch (_: Exception) {}
                 }
 
                 uploadJob = viewModelScope.launch(Dispatchers.IO) {

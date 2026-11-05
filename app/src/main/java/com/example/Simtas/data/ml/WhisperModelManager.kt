@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.data.ml
+package com.example.Simtas.data.ml
 
 import android.content.Context
 import android.os.StatFs
@@ -58,15 +58,25 @@ object WhisperModelManager {
         }
     }
 
+    private fun getDownloadsModelDir(): File? {
+        return try {
+            val downloads = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            val dir = File(downloads, "whisper-tiny")
+            if (isDirValid(dir)) dir else null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun isDirValid(dir: File?): Boolean {
-        if (dir == null || !dir.exists()) return false
+        if (dir == null || !dir.exists() || !dir.canRead()) return false
         val encoder = File(dir, ENCODER_FILE)
         val decoder = File(dir, DECODER_FILE)
         val tokens = File(dir, TOKENS_FILE)
 
-        return encoder.exists() && encoder.length() > 10_000_000L &&
-                decoder.exists() && decoder.length() > 50_000_000L &&
-                tokens.exists() && tokens.length() > 100_000L
+        return encoder.exists() && encoder.canRead() && encoder.length() > 10_000_000L &&
+                decoder.exists() && decoder.canRead() && decoder.length() > 50_000_000L &&
+                tokens.exists() && tokens.canRead() && tokens.length() > 100_000L
     }
 
     fun getModelDir(context: Context): File {
@@ -74,15 +84,25 @@ object WhisperModelManager {
         if (ext != null && isDirValid(ext)) {
             return ext
         }
+        val intDir = getInternalModelDir(context)
+        if (isDirValid(intDir)) {
+            return intDir
+        }
+        val dlDir = getDownloadsModelDir()
+        if (dlDir != null && isDirValid(dlDir)) {
+            return dlDir
+        }
         return getInternalModelDir(context)
     }
 
     /**
-     * Checks if all required Whisper model files are installed and valid in app-private storage
-     * (either internal filesDir or external app filesDir).
+     * Checks if all required Whisper model files are installed and valid in app storage
+     * (internal filesDir, external app filesDir, or Download/whisper-tiny).
      */
     fun isModelInstalled(context: Context): Boolean {
-        return isDirValid(getInternalModelDir(context)) || isDirValid(getExternalModelDir(context))
+        return isDirValid(getInternalModelDir(context)) ||
+                isDirValid(getExternalModelDir(context)) ||
+                isDirValid(getDownloadsModelDir())
     }
 
     fun getModelFiles(context: Context): WhisperModelFiles? {
@@ -100,6 +120,14 @@ object WhisperModelManager {
                 encoder = File(extDir, ENCODER_FILE),
                 decoder = File(extDir, DECODER_FILE),
                 tokens = File(extDir, TOKENS_FILE)
+            )
+        }
+        val dlDir = getDownloadsModelDir()
+        if (dlDir != null && isDirValid(dlDir)) {
+            return WhisperModelFiles(
+                encoder = File(dlDir, ENCODER_FILE),
+                decoder = File(dlDir, DECODER_FILE),
+                tokens = File(dlDir, TOKENS_FILE)
             )
         }
         return null

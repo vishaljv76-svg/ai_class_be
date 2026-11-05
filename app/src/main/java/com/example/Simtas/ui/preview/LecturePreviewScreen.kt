@@ -99,8 +99,9 @@ fun LecturePreviewScreen(
         onForward10s = viewModel::onForward10s,
         onSpeedClick = viewModel::onSpeedClicked,
         onGenerateTranscriptClick = {
-            viewModel.onGenerateTranscriptClicked()
-            onGenerateTranscriptClick()
+            if (viewModel.onGenerateTranscriptClicked()) {
+                onGenerateTranscriptClick()
+            }
         }
     )
 }
@@ -206,6 +207,7 @@ fun LecturePreviewScreenContent(
                     totalTimeText = uiState.totalTimeText,
                     isPlaying = uiState.isPlaying,
                     speedText = uiState.playbackSpeedText,
+                    playbackProgress = uiState.playbackProgress,
                     onPlayPauseToggle = onPlayPauseToggle,
                     onRewind10s = onRewind10s,
                     onForward10s = onForward10s,
@@ -376,6 +378,7 @@ private fun AudioPlayerCard(
     totalTimeText: String,
     isPlaying: Boolean,
     speedText: String,
+    playbackProgress: Float = 0f,
     onPlayPauseToggle: () -> Unit,
     onRewind10s: () -> Unit,
     onForward10s: () -> Unit,
@@ -413,7 +416,7 @@ private fun AudioPlayerCard(
             Spacer(modifier = Modifier.height(18.dp))
 
             // Waveform Visualizer
-            AudioWaveformVisualizer(isPlaying = isPlaying)
+            AudioWaveformVisualizer(isPlaying = isPlaying, playbackProgress = playbackProgress)
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -461,9 +464,9 @@ private fun AudioPlayerCard(
                 ) {
                     Canvas(modifier = Modifier.size(20.dp)) {
                         if (isPlaying) {
-                            drawPlayIcon(Color.White)
-                        } else {
                             drawPauseIcon(Color.White)
+                        } else {
+                            drawPlayIcon(Color.White)
                         }
                     }
                 }
@@ -498,7 +501,7 @@ private fun AudioPlayerCard(
  * Audio Waveform Visualizer
  */
 @Composable
-private fun AudioWaveformVisualizer(isPlaying: Boolean) {
+private fun AudioWaveformVisualizer(isPlaying: Boolean, playbackProgress: Float = 0f) {
     val heights = listOf(
         0.3f, 0.45f, 0.6f, 0.75f, 0.9f, 0.65f, 0.85f, 1.0f,
         0.8f, 0.95f, 0.7f, 0.85f, 0.45f, 0.35f, 0.5f, 0.3f,
@@ -512,12 +515,19 @@ private fun AudioWaveformVisualizer(isPlaying: Boolean) {
     ) {
         val strokeWidth = 3.5.dp.toPx()
         val step = size.width / (heights.size + 1)
+        val activeCount = if (playbackProgress > 0f) {
+            (heights.size * playbackProgress).toInt()
+        } else if (isPlaying) {
+            10
+        } else {
+            0
+        }
 
         heights.forEachIndexed { index, h ->
             val x = step * (index + 1)
             val hPx = size.height * h
             val startY = (size.height - hPx) / 2
-            val color = if (index < 11) PurplePrimary else Color.White.copy(alpha = 0.8f)
+            val color = if (index <= activeCount) PurplePrimary else Color.White.copy(alpha = 0.8f)
 
             drawLine(
                 color = color,

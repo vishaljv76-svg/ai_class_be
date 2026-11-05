@@ -81,6 +81,9 @@ fun TranscriptScreen(
 
     LaunchedEffect(audioPath) {
         viewModel.initContext(context, audioPath)
+        if (viewModel.uiState.value.paragraphs.isEmpty() && !viewModel.uiState.value.isTranscribing) {
+            viewModel.generateTranscript(context)
+        }
     }
 
     TranscriptScreenContent(
@@ -491,14 +494,17 @@ fun TranscriptScreenContent(
                     }
 
                     // Generate Notes Button
+                    val isGenerateNotesEnabled = uiState.paragraphs.isNotEmpty() && !uiState.isTranscribing
                     Button(
                         onClick = onGenerateNotesClick,
+                        enabled = isGenerateNotesEnabled,
                         modifier = Modifier
                             .weight(1.2f)
                             .height(54.dp),
                         shape = RoundedCornerShape(27.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = PurplePrimary
+                            containerColor = PurplePrimary,
+                            disabledContainerColor = Color(0xFFD8D2EB)
                         ),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                     ) {

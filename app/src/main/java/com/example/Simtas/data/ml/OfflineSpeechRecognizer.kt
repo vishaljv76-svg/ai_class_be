@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.data.ml
+package com.example.Simtas.data.ml
 
 import android.content.Context
 import com.example.Simtas.ui.transcript.TranscriptParagraph
@@ -85,7 +85,9 @@ object OfflineSpeechRecognizer {
                 this.modelConfig = modelConfig
             }
 
-            val recognizer = OfflineRecognizer(context.assets, recognizerConfig)
+            // When loading models from internal/external storage via absolute paths,
+            // assetManager MUST be null as required by sherpa-onnx C++ file-utils.
+            val recognizer = OfflineRecognizer(null as android.content.res.AssetManager?, recognizerConfig)
             activeRecognizer = recognizer
             currentConfigKey = configKey
             return recognizer

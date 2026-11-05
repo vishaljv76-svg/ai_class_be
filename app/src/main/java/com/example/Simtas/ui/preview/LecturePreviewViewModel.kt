@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.preview
+package com.example.Simtas.ui.preview
 
 import android.content.Context
 import android.media.AudioAttributes
@@ -288,8 +288,27 @@ class LecturePreviewViewModel : ViewModel() {
         }
     }
 
-    fun onGenerateTranscriptClicked() {
+    fun onGenerateTranscriptClicked(): Boolean {
         pauseAudio()
+        val path = _uiState.value.audioFilePath ?: SessionManager.getLastRecordedAudioPath()
+        if (path.isNullOrBlank()) {
+            _uiState.update {
+                it.copy(
+                    errorMessage = "No recording found. Please record lecture audio before transcribing."
+                )
+            }
+            return false
+        }
+        val file = File(path)
+        if (!file.exists() || file.length() == 0L) {
+            _uiState.update {
+                it.copy(
+                    errorMessage = "Audio file is missing or empty. Please record audio again."
+                )
+            }
+            return false
+        }
+        return true
     }
 
     fun onScreenDisposed() {

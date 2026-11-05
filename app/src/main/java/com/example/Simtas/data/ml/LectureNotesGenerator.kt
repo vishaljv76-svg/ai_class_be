@@ -245,6 +245,17 @@ object LectureNotesGenerator {
         val cleanTitle = lectureTitle.ifBlank { "Recorded Lecture Notes" }
         val metadata = "Extractive Study Notes · $durationText · CS301"
 
+        // Check for detected questions and answers
+        val existingQAs = com.example.Simtas.data.remote.SessionManager.getDetectedQuestionsAndAnswers()
+        val detectedQAs = if (existingQAs.isNotEmpty()) {
+            existingQAs
+        } else {
+            val questions = QuestionDetector.extractQuestions(textToCheck)
+            questions.map { q ->
+                QuestionAnsweringEngine.answerQuestion(q, textToCheck)
+            }
+        }
+
         val generatedUiState = GeneratedNotesUiState(
             subjectBadge = subject,
             lectureTitle = cleanTitle,
@@ -252,6 +263,7 @@ object LectureNotesGenerator {
             aiSummaryText = fullSummaryText,
             keyTakeaways = takeaways,
             importantTerms = detectedTerms.take(5),
+            detectedQuestionsAndAnswers = detectedQAs,
             isSaved = false,
             isLoading = false
         )

@@ -34,6 +34,7 @@ object SessionManager {
     private var inMemoryLastNoteId: Int? = null
     private var inMemoryLastQuizId: Int? = null
     private var inMemoryDiscoveredResources: List<com.example.Simtas.ui.notes.DiscoveredResourceItem> = emptyList()
+    private var inMemoryDetectedQAs: List<com.example.Simtas.ui.notes.DetectedQuestionAnswerItem> = emptyList()
     private var inMemoryLastQuizResult: com.example.Simtas.ui.quizresults.QuizResultsUiState? = null
 
     fun init(context: Context) {
@@ -168,6 +169,12 @@ object SessionManager {
         inMemoryDiscoveredResources = resources
     }
 
+    fun setDetectedQuestionsAndAnswers(list: List<com.example.Simtas.ui.notes.DetectedQuestionAnswerItem>) {
+        inMemoryDetectedQAs = list
+    }
+
+    fun getDetectedQuestionsAndAnswers(): List<com.example.Simtas.ui.notes.DetectedQuestionAnswerItem> = inMemoryDetectedQAs
+
     fun getDiscoveredResources(): List<com.example.Simtas.ui.notes.DiscoveredResourceItem> = inMemoryDiscoveredResources
 
     fun setLastQuizResult(result: com.example.Simtas.ui.quizresults.QuizResultsUiState?) {
@@ -191,6 +198,7 @@ object SessionManager {
         inMemoryLastNoteId = null
         inMemoryLastQuizId = null
         inMemoryDiscoveredResources = emptyList()
+        inMemoryDetectedQAs = emptyList()
         inMemoryLastQuizResult = null
 
         val ctx = context ?: appContext

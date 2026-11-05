@@ -35,5 +35,8 @@ data class LecturePreviewUiState(
         "ta" to "Tamil (தமிழ்)",
         "" to "Auto Detect"
     ),
-    val isSaved: Boolean = false
+    val isSaved: Boolean = false,
+    // Automatic Question Answering additions
+    val detectedQuestionsAndAnswers: List<com.example.Simtas.ui.notes.DetectedQuestionAnswerItem> = emptyList(),
+    val isAnsweringQuestion: Boolean = false
 )

@@ -162,6 +162,29 @@ fun GeneratedNotesScreenContent(
                 // AI Summary Highlight Card
                 AiSummaryCard(summaryText = uiState.aiSummaryText)
 
+                // Questions & Answers Section (when questions are detected)
+                if (uiState.detectedQuestionsAndAnswers.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        text = "Questions & Answers",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextDarkPrimary
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        uiState.detectedQuestionsAndAnswers.forEach { qaItem ->
+                            QuestionAnswerItemCard(item = qaItem)
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Key Takeaways Section
@@ -350,6 +373,72 @@ private fun TopNavigationBar(
         ) {
             Canvas(modifier = Modifier.size(20.dp)) {
                 drawThreeDotsMenu(TextDarkPrimary)
+            }
+        }
+    }
+}
+
+/**
+ * Question and Answer Item Card for Generated Notes
+ */
+@Composable
+private fun QuestionAnswerItemCard(item: DetectedQuestionAnswerItem) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(SummaryCardBg)
+            .padding(16.dp)
+    ) {
+        Column {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Q: ${item.question}",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextDarkPrimary,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(if (item.isAnswered) PurplePrimary else Color(0xFFDC2626))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = item.status,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = item.answer,
+                fontSize = if (item.answer.length <= 4) 22.sp else 13.sp,
+                fontWeight = if (item.answer.length <= 4) FontWeight.Bold else FontWeight.SemiBold,
+                color = PurplePrimary,
+                lineHeight = 19.sp
+            )
+
+            if (item.explanation.isNotBlank() && item.explanation != item.answer) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = item.explanation,
+                    fontSize = 12.sp,
+                    color = TextDarkPrimary,
+                    lineHeight = 17.sp
+                )
             }
         }
     }

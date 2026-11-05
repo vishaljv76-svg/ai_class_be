@@ -137,6 +137,7 @@ class LecturePreviewViewModel : ViewModel() {
                     statusText = "Text ready"
                 )
             }
+            analyzeAndAnswerQuestions(sessionText)
         }
     }
 
@@ -175,6 +176,7 @@ class LecturePreviewViewModel : ViewModel() {
             val cachedText = SessionManager.getLastTranscriptionText()
             if (!cachedText.isNullOrBlank()) {
                 _uiState.update { it.copy(recognizedText = cachedText, statusText = "Speech recognized") }
+                analyzeAndAnswerQuestions(cachedText)
             } else {
                 transcribeLoadedAudio(context)
             }
@@ -312,6 +314,7 @@ class LecturePreviewViewModel : ViewModel() {
                         isSaved = true
                     )
                 }
+                analyzeAndAnswerQuestions(combined)
             } else {
                 _uiState.update {
                     it.copy(
@@ -365,6 +368,7 @@ class LecturePreviewViewModel : ViewModel() {
                         isSaved = true
                     )
                 }
+                analyzeAndAnswerQuestions(combined)
             } else {
                 _uiState.update {
                     it.copy(
@@ -377,21 +381,84 @@ class LecturePreviewViewModel : ViewModel() {
         }
     }
 
-    // --- Manual Text Input & Language Options ---
+    // --- Manual Text Input, Question Answering & Language Options ---
+
+    private var questionAnsweringJob: Job? = null
 
     fun onRecognizedTextChanged(newText: String) {
         _uiState.update { it.copy(recognizedText = newText, errorMessage = null) }
         val paragraphs = buildParagraphsFromText(newText)
         SessionManager.setLastTranscription(newText, paragraphs)
+        analyzeAndAnswerQuestions(newText)
     }
 
     fun onClearTextClicked() {
-        _uiState.update { it.copy(recognizedText = "", errorMessage = null) }
+        questionAnsweringJob?.cancel()
+        _uiState.update {
+            it.copy(
+                recognizedText = "",
+                detectedQuestionsAndAnswers = emptyList(),
+                isAnsweringQuestion = false,
+                errorMessage = null
+            )
+        }
         SessionManager.setLastTranscription("", emptyList())
+        SessionManager.setDetectedQuestionsAndAnswers(emptyList())
     }
 
     fun onLanguageSelected(code: String) {
         _uiState.update { it.copy(selectedLanguageCode = code) }
+    }
+
+    /**
+     * Reactively extracts questions and generates answers using QuestionAnsweringEngine.
+     */
+    fun analyzeAndAnswerQuestions(text: String) {
+        questionAnsweringJob?.cancel()
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) {
+            _uiState.update {
+                it.copy(
+                    detectedQuestionsAndAnswers = emptyList(),
+                    isAnsweringQuestion = false
+                )
+            }
+            SessionManager.setDetectedQuestionsAndAnswers(emptyList())
+            return
+        }
+
+        questionAnsweringJob = viewModelScope.launch(Dispatchers.Default) {
+            val questions = com.example.Simtas.data.ml.QuestionDetector.extractQuestions(trimmed)
+            if (questions.isEmpty()) {
+                _uiState.update {
+                    it.copy(
+                        detectedQuestionsAndAnswers = emptyList(),
+                        isAnsweringQuestion = false
+                    )
+                }
+                SessionManager.setDetectedQuestionsAndAnswers(emptyList())
+                return@launch
+            }
+
+            _uiState.update { it.copy(isAnsweringQuestion = true) }
+
+            val qaItems = mutableListOf<com.example.Simtas.ui.notes.DetectedQuestionAnswerItem>()
+            for (q in questions) {
+                val item = com.example.Simtas.data.ml.QuestionAnsweringEngine.answerQuestion(
+                    question = q,
+                    lectureContext = trimmed
+                )
+                qaItems.add(item)
+            }
+
+            SessionManager.setDetectedQuestionsAndAnswers(qaItems)
+            _uiState.update {
+                it.copy(
+                    detectedQuestionsAndAnswers = qaItems,
+                    isAnsweringQuestion = false
+                )
+            }
+        }
     }
 
     private fun buildParagraphsFromText(text: String): List<TranscriptParagraph> {
@@ -576,9 +643,10 @@ class LecturePreviewViewModel : ViewModel() {
             return false
         }
 
-        // Ensure current text is saved to SessionManager for Transcript & Notes screens
+        // Ensure current text and detected Q&As are saved to SessionManager for Transcript & Notes screens
         val paragraphs = buildParagraphsFromText(text)
         SessionManager.setLastTranscription(text, paragraphs)
+        SessionManager.setDetectedQuestionsAndAnswers(_uiState.value.detectedQuestionsAndAnswers)
         return true
     }
 

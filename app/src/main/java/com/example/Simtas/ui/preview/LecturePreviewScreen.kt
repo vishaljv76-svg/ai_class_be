@@ -610,6 +610,134 @@ private fun VoiceAndTextInputCard(
             ),
             singleLine = false
         )
+
+        // Related Answers Section (display questions and answers alongside recognized text)
+        if (uiState.detectedQuestionsAndAnswers.isNotEmpty() || uiState.isAnsweringQuestion) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .background(PurplePrimary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "?",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Related Answers",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextDarkPrimary
+                    )
+                }
+
+                if (uiState.isAnsweringQuestion) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(12.dp),
+                            color = PurplePrimary,
+                            strokeWidth = 1.5.dp
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Analyzing question...",
+                            fontSize = 11.sp,
+                            color = TextMuted
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                uiState.detectedQuestionsAndAnswers.forEach { item ->
+                    RelatedAnswerItemCard(item = item)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Related Answer Card for Detected Questions on Screen 2
+ */
+@Composable
+private fun RelatedAnswerItemCard(item: com.example.Simtas.ui.notes.DetectedQuestionAnswerItem) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.White)
+            .padding(14.dp)
+    ) {
+        Column {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Q: ${item.question}",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextDarkPrimary,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(if (item.isAnswered) InnerCircleBg else Color(0xFFFEE2E2))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = item.status,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (item.isAnswered) PurplePrimary else Color(0xFFDC2626)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = item.answer,
+                fontSize = if (item.answer.length <= 4) 20.sp else 13.sp,
+                fontWeight = if (item.answer.length <= 4) FontWeight.Bold else FontWeight.Normal,
+                color = if (item.isAnswered) PurplePrimary else TextMuted,
+                lineHeight = 18.sp
+            )
+
+            if (item.explanation.isNotBlank() && item.explanation != item.answer) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = item.explanation,
+                    fontSize = 11.sp,
+                    color = TextMuted,
+                    lineHeight = 16.sp
+                )
+            }
+        }
     }
 }
 

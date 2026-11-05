@@ -1,3 +1,4 @@
+
 package com.example.Simtas.data.ml
 
 import com.example.Simtas.ui.detailednotes.DetailedNotesUiState
@@ -59,6 +60,69 @@ object LectureNotesGenerator {
         subject: String = "Computer Science",
         durationText: String = "Recorded Lecture"
     ): ExtractiveLectureNotesResult {
+        // Step 1: Check for mathematical expressions before ordinary note generation
+        val textToCheck = if (transcriptText.isNotBlank()) {
+            transcriptText
+        } else {
+            paragraphs.joinToString(" ") { it.text }
+        }
+        val mathSolution = MathExpressionSolver.solveTranscript(textToCheck)
+        if (mathSolution != null) {
+            val q = mathSolution.question
+            val a = mathSolution.answer
+            val exp = mathSolution.explanation
+            val displayTitle = if (lectureTitle == "Recorded Lecture" || lectureTitle == "Database Normalization" || lectureTitle == "Lecture Notes" || lectureTitle.isBlank()) {
+                "Math: $q"
+            } else {
+                lectureTitle
+            }
+
+            val mathQaItem = com.example.Simtas.ui.notes.DetectedQuestionAnswerItem(
+                question = q,
+                answer = a,
+                explanation = exp,
+                status = "Answered",
+                isAnswered = true
+            )
+
+            val genNotes = GeneratedNotesUiState(
+                subjectBadge = "Mathematics",
+                lectureTitle = displayTitle,
+                metadataText = "Mathematical Calculation · $durationText",
+                aiSummaryText = "Mathematical Question:\n$q\n\nAnswer:\n$a\n\nExplanation:\n$exp",
+                keyTakeaways = listOf("$q = $a", exp),
+                importantTerms = listOf("Mathematics", "Calculation", "Arithmetic"),
+                detectedQuestionsAndAnswers = listOf(mathQaItem),
+                mathQuestion = q,
+                mathAnswer = a,
+                mathExplanation = exp,
+                hasMathSolution = true,
+                isSaved = false,
+                isLoading = false
+            )
+
+            val detNotes = DetailedNotesUiState(
+                courseCode = "MATH101",
+                tagText = "Calculated Solution",
+                lectureTitle = displayTitle,
+                metadataText = "Evaluated via offline MathExpressionSolver · $durationText",
+                section1Title = "01 Mathematical Question",
+                section1Content = "Expression: $q\nAnswer: $a\n$exp",
+                section2Title = "02 Solution Details",
+                section2Bullets = listOf("Expression: $q", "Result: $a", "Explanation: $exp", "Status: Solved"),
+                calloutTitle = "Answer: $a",
+                calloutContent = exp,
+                section3Title = "03 Step Verification",
+                section3Content1 = "Calculated safely using deterministic offline math parsing.",
+                section3Content2 = "Verified: $q gives $a",
+                footerText = "Calculated directly from spoken audio · Zero arbitrary code execution",
+                isBookmarked = false,
+                isLoading = false
+            )
+
+            return ExtractiveLectureNotesResult(genNotes, detNotes)
+        }
+
         // Collect all sentences from paragraphs or raw text
         val rawSentences = extractSentences(transcriptText, paragraphs)
 
@@ -232,7 +296,7 @@ object LectureNotesGenerator {
             list.addAll(splitToSentences(text))
         }
 
-        return list.map { it.trim() }.filter { it.length >= 10 }
+        return list.map { it.trim() }.filter { it.isNotBlank() }
     }
 
     private fun splitToSentences(text: String): List<String> {

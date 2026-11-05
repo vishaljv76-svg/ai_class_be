@@ -62,6 +62,18 @@ class TranscriptViewModel : ViewModel() {
     fun initContext(context: Context, explicitPath: String? = null) {
         val installed = WhisperModelManager.isModelInstalled(context)
         _uiState.update { it.copy(isModelInstalled = installed) }
+
+        // Sync latest paragraphs from SessionManager if updated on Screen 2
+        val cachedParagraphs = SessionManager.getLastTranscriptionParagraphs()
+        if (cachedParagraphs.isNotEmpty()) {
+            _uiState.update {
+                it.copy(
+                    paragraphs = cachedParagraphs,
+                    isSaved = true
+                )
+            }
+        }
+
         resolveAudioFile(context, explicitPath)
     }
 

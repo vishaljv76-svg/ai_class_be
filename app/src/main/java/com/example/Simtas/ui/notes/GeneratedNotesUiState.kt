@@ -46,6 +46,10 @@ data class GeneratedNotesUiState(
     ),
     val educationalResources: List<DiscoveredResourceItem> = emptyList(),
     val detectedQuestionsAndAnswers: List<DetectedQuestionAnswerItem> = emptyList(),
+    val mathQuestion: String? = null,
+    val mathAnswer: String? = null,
+    val mathExplanation: String? = null,
+    val hasMathSolution: Boolean = false,
     val isSaved: Boolean = false,
     val isLoading: Boolean = false
 )

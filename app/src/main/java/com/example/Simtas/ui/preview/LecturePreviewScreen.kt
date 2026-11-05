@@ -1,5 +1,14 @@
 package com.example.Simtas.ui.preview
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -11,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
@@ -28,6 +39,8 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -44,23 +58,26 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.example.Simtas.ui.theme.AIBasedClassNotesAppTheme
 import com.example.Simtas.ui.theme.InnerCircleBg
 import com.example.Simtas.ui.theme.PurplePrimary
 import com.example.Simtas.ui.theme.SplashBackground
 import com.example.Simtas.ui.theme.TextDarkPrimary
 import com.example.Simtas.ui.theme.TextMuted
-import com.example.Simtas.ui.theme.TextSubtitle
 
 val PlayerCardBg = Color(0xFFF1EDFE)
+val MicListeningRed = Color(0xFFDC2626)
 
 /**
- * Lecture Preview screen adhering to MVVM architecture.
+ * Screen 2: Lecture Preview with Real-Time Voice-to-Text and Manual Text Input.
+ * Adheres strictly to MVVM architecture and the SmartNotes AI design language.
  */
 @Composable
 fun LecturePreviewScreen(
@@ -72,15 +89,41 @@ fun LecturePreviewScreen(
     onGenerateTranscriptClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
 
-    androidx.compose.runtime.LaunchedEffect(audioPath) {
+    LaunchedEffect(audioPath) {
         viewModel.loadAudio(audioPath, context)
     }
 
-    androidx.compose.runtime.DisposableEffect(Unit) {
+    DisposableEffect(Unit) {
         onDispose {
             viewModel.onScreenDisposed()
+        }
+    }
+
+    // Microphone permission launcher for voice input on Screen 2
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.startVoiceInput(context)
+        }
+    }
+
+    val handleMicClick = {
+        if (uiState.isListening) {
+            viewModel.stopVoiceInput(context)
+        } else {
+            val hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (hasPermission) {
+                viewModel.startVoiceInput(context)
+            } else {
+                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
         }
     }
 
@@ -98,6 +141,11 @@ fun LecturePreviewScreen(
         onRewind10s = viewModel::onRewind10s,
         onForward10s = viewModel::onForward10s,
         onSpeedClick = viewModel::onSpeedClicked,
+        onMicClick = handleMicClick,
+        onRecognizedTextChange = viewModel::onRecognizedTextChanged,
+        onClearTextClick = viewModel::onClearTextClicked,
+        onLanguageSelect = viewModel::onLanguageSelected,
+        onTranscribeAudioClick = { viewModel.transcribeLoadedAudio(context) },
         onGenerateTranscriptClick = {
             if (viewModel.onGenerateTranscriptClicked()) {
                 onGenerateTranscriptClick()
@@ -118,6 +166,11 @@ fun LecturePreviewScreenContent(
     onRewind10s: () -> Unit = {},
     onForward10s: () -> Unit = {},
     onSpeedClick: () -> Unit = {},
+    onMicClick: () -> Unit = {},
+    onRecognizedTextChange: (String) -> Unit = {},
+    onClearTextClick: () -> Unit = {},
+    onLanguageSelect: (String) -> Unit = {},
+    onTranscribeAudioClick: () -> Unit = {},
     onGenerateTranscriptClick: () -> Unit = {}
 ) {
     Surface(
@@ -200,21 +253,35 @@ fun LecturePreviewScreenContent(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Audio Player Card Container
-                AudioPlayerCard(
-                    statusText = uiState.statusText,
-                    currentTimeText = uiState.currentTimeText,
-                    totalTimeText = uiState.totalTimeText,
-                    isPlaying = uiState.isPlaying,
-                    speedText = uiState.playbackSpeedText,
-                    playbackProgress = uiState.playbackProgress,
-                    onPlayPauseToggle = onPlayPauseToggle,
-                    onRewind10s = onRewind10s,
-                    onForward10s = onForward10s,
-                    onSpeedClick = onSpeedClick
+                // Audio Player Card Container (when audio exists)
+                if (uiState.hasAudioFile) {
+                    AudioPlayerCard(
+                        statusText = uiState.statusText,
+                        currentTimeText = uiState.currentTimeText,
+                        totalTimeText = uiState.totalTimeText,
+                        isPlaying = uiState.isPlaying,
+                        speedText = uiState.playbackSpeedText,
+                        playbackProgress = uiState.playbackProgress,
+                        onPlayPauseToggle = onPlayPauseToggle,
+                        onRewind10s = onRewind10s,
+                        onForward10s = onForward10s,
+                        onSpeedClick = onSpeedClick
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
+
+                // --- ChatGPT-Style Voice & Text Input Section ---
+                VoiceAndTextInputCard(
+                    uiState = uiState,
+                    onMicClick = onMicClick,
+                    onRecognizedTextChange = onRecognizedTextChange,
+                    onClearTextClick = onClearTextClick,
+                    onLanguageSelect = onLanguageSelect,
+                    onTranscribeAudioClick = onTranscribeAudioClick
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Lecture Title Field
                 Text(
@@ -285,9 +352,9 @@ fun LecturePreviewScreenContent(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                // Generate Transcript CTA Button
+                // Continue to Transcript CTA Button
                 Button(
                     onClick = onGenerateTranscriptClick,
                     modifier = Modifier
@@ -308,7 +375,7 @@ fun LecturePreviewScreenContent(
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Generate Transcript",
+                            text = "Continue to Transcript",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -319,6 +386,252 @@ fun LecturePreviewScreenContent(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+    }
+}
+
+/**
+ * ChatGPT-Style Voice Input & Multiline Text Area Component
+ */
+@Composable
+private fun VoiceAndTextInputCard(
+    uiState: LecturePreviewUiState,
+    onMicClick: () -> Unit,
+    onRecognizedTextChange: (String) -> Unit,
+    onClearTextClick: () -> Unit,
+    onLanguageSelect: (String) -> Unit,
+    onTranscribeAudioClick: () -> Unit
+) {
+    // Pulsing animation when microphone is actively listening
+    val infiniteTransition = rememberInfiniteTransition(label = "micPulse")
+    val micScale by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = if (uiState.isListening) 1.15f else 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(PlayerCardBg)
+            .padding(18.dp)
+    ) {
+        // Section Header Row: Title & Language Selector
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(PurplePrimary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Canvas(modifier = Modifier.size(14.dp)) {
+                        drawSparkleStarIcon(Color.White)
+                    }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Speech & Text Input",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextDarkPrimary
+                )
+            }
+
+            // Language Selector Pills (English / Tamil)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                LanguageChip(
+                    label = "EN",
+                    isSelected = uiState.selectedLanguageCode == "en",
+                    onClick = { onLanguageSelect("en") }
+                )
+                LanguageChip(
+                    label = "தமிழ்",
+                    isSelected = uiState.selectedLanguageCode == "ta",
+                    onClick = { onLanguageSelect("ta") }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Voice Control Row (Microphone Button & Status)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color.White)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Animated Mic Button
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .scale(micScale)
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(if (uiState.isListening) MicListeningRed else PurplePrimary)
+                    .clickable { onMicClick() }
+            ) {
+                if (uiState.isTranscribing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        color = Color.White,
+                        strokeWidth = 2.5.dp
+                    )
+                } else {
+                    Canvas(modifier = Modifier.size(22.dp)) {
+                        if (uiState.isListening) {
+                            drawSquareStopIcon(Color.White)
+                        } else {
+                            drawMicIcon(Color.White)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = when {
+                        uiState.isListening -> "Listening... Speak clearly"
+                        uiState.isTranscribing -> "Recognizing speech (${uiState.transcriptionProgress}%)..."
+                        uiState.recognizedText.isNotBlank() -> "Speech recognized · Tap to add more"
+                        else -> "Tap mic to speak · Real-time voice"
+                    },
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (uiState.isListening) MicListeningRed else TextDarkPrimary
+                )
+                Text(
+                    text = when {
+                        uiState.isListening -> "Tap stop button when finished speaking"
+                        uiState.isTranscribing -> "Offline Sherpa-ONNX Whisper processing"
+                        else -> "Offline Whisper Multilingual (${if (uiState.selectedLanguageCode == "ta") "Tamil" else "English"})"
+                    },
+                    fontSize = 11.sp,
+                    color = TextMuted
+                )
+            }
+
+            // Quick Transcribe Action for Screen 1 Recording
+            if (uiState.hasAudioFile && !uiState.isListening && !uiState.isTranscribing) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(InnerCircleBg)
+                        .clickable { onTranscribeAudioClick() }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = if (uiState.recognizedText.isBlank()) "Transcribe" else "Re-run",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PurplePrimary
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Multiline Text Area Header (Label & Clear Button)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Lecture Content & Questions",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextDarkPrimary
+            )
+
+            if (uiState.recognizedText.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { onClearTextClick() }
+                ) {
+                    Canvas(modifier = Modifier.size(12.dp)) {
+                        drawTrashIcon(PurplePrimary)
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Clear text",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = PurplePrimary
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Multiline Editable Text Area
+        OutlinedTextField(
+            value = uiState.recognizedText,
+            onValueChange = onRecognizedTextChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 140.dp, max = 260.dp),
+            placeholder = {
+                Text(
+                    text = "Spoken words will appear here.\n\nYou can also type lecture notes, questions, or edit recognized text at any time...",
+                    fontSize = 13.sp,
+                    color = TextMuted,
+                    lineHeight = 18.sp
+                )
+            },
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                disabledContainerColor = Color.White,
+                focusedBorderColor = PurplePrimary,
+                unfocusedBorderColor = Color.Transparent,
+                focusedTextColor = TextDarkPrimary,
+                unfocusedTextColor = TextDarkPrimary
+            ),
+            singleLine = false
+        )
+    }
+}
+
+@Composable
+private fun LanguageChip(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isSelected) PurplePrimary else Color.White)
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 5.dp)
+    ) {
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (isSelected) Color.White else TextDarkPrimary
+        )
     }
 }
 
@@ -415,45 +728,49 @@ private fun AudioPlayerCard(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // Waveform Visualizer
+            // Waveform Graphic
             AudioWaveformVisualizer(isPlaying = isPlaying, playbackProgress = playbackProgress)
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Times Row
+            // Timestamp Row
             Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     text = currentTimeText,
                     fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
                     color = TextMuted
                 )
-
                 Text(
                     text = totalTimeText,
                     fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
                     color = TextMuted
                 )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Player Controls Row
+            // Playback Controls Row
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                modifier = Modifier.fillMaxWidth()
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Rewind 10s
-                IconButton(onClick = onRewind10s) {
+                // Rewind 10s Button
+                IconButton(
+                    onClick = onRewind10s,
+                    modifier = Modifier.size(40.dp)
+                ) {
                     Canvas(modifier = Modifier.size(24.dp)) {
-                        drawRewind10sIcon(PurplePrimary)
+                        drawRewind10sIcon(TextDarkPrimary)
                     }
                 }
 
-                // Play / Pause Big Circle Button
+                // Play / Pause Circular Button
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -462,7 +779,7 @@ private fun AudioPlayerCard(
                         .background(PurplePrimary)
                         .clickable { onPlayPauseToggle() }
                 ) {
-                    Canvas(modifier = Modifier.size(20.dp)) {
+                    Canvas(modifier = Modifier.size(22.dp)) {
                         if (isPlaying) {
                             drawPauseIcon(Color.White)
                         } else {
@@ -471,23 +788,28 @@ private fun AudioPlayerCard(
                     }
                 }
 
-                // Forward 10s
-                IconButton(onClick = onForward10s) {
+                // Forward 10s Button
+                IconButton(
+                    onClick = onForward10s,
+                    modifier = Modifier.size(40.dp)
+                ) {
                     Canvas(modifier = Modifier.size(24.dp)) {
-                        drawForward10sIcon(PurplePrimary)
+                        drawForward10sIcon(TextDarkPrimary)
                     }
                 }
 
-                // Playback Speed Button
+                // Speed Selector Pill
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White)
                         .clickable { onSpeedClick() }
-                        .padding(8.dp)
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
                         text = speedText,
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = PurplePrimary
                     )
@@ -606,6 +928,82 @@ private fun DropdownSelectField(
 }
 
 // --- Custom Canvas Graphics Helpers ---
+
+private fun DrawScope.drawMicIcon(color: Color) {
+    val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(size.width * 0.35f, size.height * 0.15f),
+        size = Size(size.width * 0.3f, size.height * 0.42f),
+        cornerRadius = CornerRadius(size.width * 0.15f),
+        style = stroke
+    )
+    drawArc(
+        color = color,
+        startAngle = 0f,
+        sweepAngle = 180f,
+        useCenter = false,
+        topLeft = Offset(size.width * 0.22f, size.height * 0.28f),
+        size = Size(size.width * 0.56f, size.height * 0.38f),
+        style = stroke
+    )
+    drawLine(
+        color = color,
+        start = Offset(size.width * 0.5f, size.height * 0.66f),
+        end = Offset(size.width * 0.5f, size.height * 0.82f),
+        strokeWidth = 1.8.dp.toPx(),
+        cap = StrokeCap.Round
+    )
+    drawLine(
+        color = color,
+        start = Offset(size.width * 0.32f, size.height * 0.82f),
+        end = Offset(size.width * 0.68f, size.height * 0.82f),
+        strokeWidth = 1.8.dp.toPx(),
+        cap = StrokeCap.Round
+    )
+}
+
+private fun DrawScope.drawSquareStopIcon(color: Color) {
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(size.width * 0.3f, size.height * 0.3f),
+        size = Size(size.width * 0.4f, size.height * 0.4f),
+        cornerRadius = CornerRadius(2.dp.toPx())
+    )
+}
+
+private fun DrawScope.drawTrashIcon(color: Color) {
+    val stroke = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
+    drawLine(
+        color = color,
+        start = Offset(size.width * 0.2f, size.height * 0.25f),
+        end = Offset(size.width * 0.8f, size.height * 0.25f),
+        strokeWidth = 1.5.dp.toPx(),
+        cap = StrokeCap.Round
+    )
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(size.width * 0.28f, size.height * 0.25f),
+        size = Size(size.width * 0.44f, size.height * 0.62f),
+        cornerRadius = CornerRadius(2.dp.toPx()),
+        style = stroke
+    )
+}
+
+private fun DrawScope.drawSparkleStarIcon(color: Color) {
+    val path = Path().apply {
+        val cx = size.width / 2
+        val cy = size.height / 2
+        val r = size.width / 2.2f
+        moveTo(cx, cy - r)
+        quadraticTo(cx, cy, cx + r, cy)
+        quadraticTo(cx, cy, cx, cy + r)
+        quadraticTo(cx, cy, cx - r, cy)
+        quadraticTo(cx, cy, cx, cy - r)
+        close()
+    }
+    drawPath(path = path, color = color)
+}
 
 private fun DrawScope.drawCompassClockIcon(color: Color) {
     val stroke = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)

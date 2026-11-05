@@ -1,8 +1,9 @@
-﻿package com.example.Simtas.ui.preview
+package com.example.Simtas.ui.preview
 
 /**
  * UI State for Lecture Preview Screen following MVVM architecture.
- * Holds audio playback state, resolved file metadata, and lecture details.
+ * Holds audio playback state, resolved file metadata, lecture details,
+ * and real-time voice-to-text / manual text editing states.
  */
 data class LecturePreviewUiState(
     val subjectBadge: String = "Computer Science",
@@ -22,5 +23,17 @@ data class LecturePreviewUiState(
     val fileSizeBytes: Long = 0L,
     val hasAudioFile: Boolean = false,
     val errorMessage: String? = null,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    // Real-time Voice-to-Text & Manual Input additions
+    val recognizedText: String = "",
+    val isListening: Boolean = false,
+    val isTranscribing: Boolean = false,
+    val transcriptionProgress: Int = 0,
+    val selectedLanguageCode: String = "en",
+    val supportedLanguages: List<Pair<String, String>> = listOf(
+        "en" to "English",
+        "ta" to "Tamil (தமிழ்)",
+        "" to "Auto Detect"
+    ),
+    val isSaved: Boolean = false
 )

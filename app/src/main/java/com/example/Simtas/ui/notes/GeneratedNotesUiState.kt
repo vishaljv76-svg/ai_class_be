@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.notes
+package com.example.Simtas.ui.notes
 
 /**
  * Verified educational reference or textbook discovered for this lecture.
@@ -11,6 +11,17 @@ data class DiscoveredResourceItem(
     val topic: String? = null,
     val snippet: String? = null,
     val isVerified: Boolean = true
+)
+
+/**
+ * Question detected in lecture audio, with offline generated answer and status.
+ */
+data class DetectedQuestionAnswerItem(
+    val question: String,
+    val answer: String,
+    val explanation: String = "",
+    val status: String = "Answered", // "Answered" or "Not found"
+    val isAnswered: Boolean = true
 )
 
 /**
@@ -34,6 +45,7 @@ data class GeneratedNotesUiState(
         "Normal forms"
     ),
     val educationalResources: List<DiscoveredResourceItem> = emptyList(),
+    val detectedQuestionsAndAnswers: List<DetectedQuestionAnswerItem> = emptyList(),
     val isSaved: Boolean = false,
     val isLoading: Boolean = false
 )

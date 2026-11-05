@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.data.repository
+package com.example.Simtas.data.repository
 
 import com.example.Simtas.data.model.NoteModel
 import com.example.Simtas.data.remote.ApiClient
@@ -91,26 +91,49 @@ class NotesRepositoryImpl : NotesRepository {
                     )
                 }
 
+                // Merge local notes (avoiding duplicate IDs)
+                val localNotes = com.example.Simtas.data.local.LectureNotesStorage.getAllNotesForList()
+                for (ln in localNotes) {
+                    if (list.none { it.id == ln.id || it.title.equals(ln.title, ignoreCase = true) }) {
+                        list.add(0, ln)
+                    }
+                }
+
                 return NotesFetchResult(
-                    totalNotes = totalNotes,
-                    subjectsCount = subjectsCount,
+                    totalNotes = list.size,
+                    subjectsCount = list.map { it.subject }.distinct().size,
                     statsSubtitle = subtitle,
                     backupStatusText = backup,
                     notes = list
                 )
             }
 
-            // Safe fallback if network fails
+            // Safe fallback to local storage if network fails
+            val localNotes = com.example.Simtas.data.local.LectureNotesStorage.getAllNotesForList()
+            val filtered = if (category.isNotBlank() && category != "All") {
+                localNotes.filter { it.subject.equals(category, ignoreCase = true) }
+            } else {
+                localNotes
+            }
+            val searched = if (search.isNotBlank()) {
+                filtered.filter { it.title.contains(search, ignoreCase = true) }
+            } else {
+                filtered
+            }
+
             return NotesFetchResult(
-                totalNotes = 0,
-                subjectsCount = 0,
-                statsSubtitle = "0 notes · 0 subjects",
-                backupStatusText = "Connecting to server...",
-                notes = emptyList()
+                totalNotes = searched.size,
+                subjectsCount = searched.map { it.subject }.distinct().size,
+                statsSubtitle = "${searched.size} notes · ${searched.map { it.subject }.distinct().size} subjects",
+                backupStatusText = "Offline mode · Loaded from device storage",
+                notes = searched
             )
         }
 
         suspend fun fetchNoteById(noteId: String): DetailedNotesUiState? {
+            val local = com.example.Simtas.data.local.LectureNotesStorage.getDetailedNotes(noteId)
+            if (local != null) return local
+
             val response = ApiClient.get("notes/get_note.php?id=$noteId")
             if (response.isSuccess && response.jsonObject != null) {
                 val obj = response.jsonObject.optJSONObject("note") ?: return null

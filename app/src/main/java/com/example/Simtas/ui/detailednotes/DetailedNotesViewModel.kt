@@ -27,9 +27,27 @@ class DetailedNotesViewModel : ViewModel() {
         currentNoteId = noteId
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
+            // 1. Check local persistent storage for this specific lecture
+            val localDetailed = com.example.Simtas.data.local.LectureNotesStorage.getDetailedNotes(noteId)
+            if (localDetailed != null) {
+                _uiState.value = localDetailed
+                com.example.Simtas.data.remote.SessionManager.setLastDetailedNotes(localDetailed)
+                val localGen = com.example.Simtas.data.local.LectureNotesStorage.getGeneratedNotes(noteId)
+                if (localGen != null) {
+                    com.example.Simtas.data.remote.SessionManager.setLastGeneratedNote(localGen)
+                }
+                val localTranscript = com.example.Simtas.data.local.LectureNotesStorage.getTranscript(noteId)
+                if (localTranscript != null) {
+                    com.example.Simtas.data.remote.SessionManager.setLastTranscription(localTranscript, emptyList())
+                }
+                return@launch
+            }
+
+            // 2. Query PHP backend if available
             val note = NotesRepositoryImpl.fetchNoteById(noteId)
             if (note != null) {
                 _uiState.value = note
+                com.example.Simtas.data.remote.SessionManager.setLastDetailedNotes(note)
             } else {
                 val sessionDetailed = com.example.Simtas.data.remote.SessionManager.getLastDetailedNotes()
                 if (sessionDetailed != null) {

@@ -39,6 +39,7 @@ object SessionManager {
 
     fun init(context: Context) {
         appContext = context.applicationContext
+        com.example.Simtas.data.local.LectureNotesStorage.init(context)
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         inMemoryToken = prefs.getString(KEY_AUTH_TOKEN, null)
         inMemoryUserId = prefs.getInt(KEY_USER_ID, 1)

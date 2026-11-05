@@ -446,7 +446,10 @@ class LecturePreviewViewModel : ViewModel() {
             for (q in questions) {
                 val item = com.example.Simtas.data.ml.QuestionAnsweringEngine.answerQuestion(
                     question = q,
-                    lectureContext = trimmed
+                    transcriptText = trimmed,
+                    detailedNotes = SessionManager.getLastDetailedNotes(),
+                    summaryText = SessionManager.getLastGeneratedNote()?.aiSummaryText ?: "",
+                    keyTakeaways = SessionManager.getLastGeneratedNote()?.keyTakeaways ?: emptyList()
                 )
                 qaItems.add(item)
             }

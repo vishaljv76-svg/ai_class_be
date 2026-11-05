@@ -90,6 +90,18 @@ class CreateSmartNotesViewModel : ViewModel() {
                     duration = duration
                 )
 
+                // Save this lecture's study notes separately in persistent storage
+                val lectureId = transcriptionId?.toString() ?: (System.currentTimeMillis() / 1000).toString()
+                com.example.Simtas.data.local.LectureNotesStorage.saveLecture(
+                    lectureId = lectureId,
+                    title = extractive.generatedNotes.lectureTitle,
+                    subject = extractive.generatedNotes.subjectBadge,
+                    transcriptText = transcriptText,
+                    generatedNotes = extractive.generatedNotes,
+                    detailedNotes = extractive.detailedNotes,
+                    durationText = duration
+                )
+
                 _uiState.update {
                     it.copy(
                         currentStepText = "Notes ready!",

@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.data.repository
+package com.example.Simtas.data.repository
 
 import com.example.Simtas.data.remote.ApiClient
 import com.example.Simtas.data.remote.SessionManager
@@ -46,14 +46,35 @@ object DashboardRepository {
                 )
             }
 
+            val localRecent = com.example.Simtas.data.local.LectureNotesStorage.getAllRecentNotes()
+            for (lr in localRecent) {
+                if (recentList.none { it.id == lr.id || it.title.equals(lr.title, ignoreCase = true) }) {
+                    recentList.add(0, lr)
+                }
+            }
+
             return DashboardUiState(
                 userName = name,
                 dateText = date,
                 userInitials = initials,
-                totalNotes = totalNotes,
-                subjectsCount = subjectsCount,
+                totalNotes = if (totalNotes > 0) totalNotes else recentList.size,
+                subjectsCount = if (subjectsCount > 0) subjectsCount else recentList.map { it.subject }.distinct().size,
                 quizzesCount = quizzesCount,
                 recentNotes = recentList,
+                isLoading = false
+            )
+        }
+
+        val localRecent = com.example.Simtas.data.local.LectureNotesStorage.getAllRecentNotes()
+        if (localRecent.isNotEmpty()) {
+            return DashboardUiState(
+                userName = SessionManager.getUserName(),
+                dateText = "Today",
+                userInitials = "AM",
+                totalNotes = localRecent.size,
+                subjectsCount = localRecent.map { it.subject }.distinct().size,
+                quizzesCount = 0,
+                recentNotes = localRecent,
                 isLoading = false
             )
         }

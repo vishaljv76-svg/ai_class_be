@@ -66,11 +66,12 @@ object MathExpressionSolver {
         }
 
         val lower = trimmed.lowercase(Locale.ROOT)
-        val mathKeywords = listOf("+", "-", "*", "/", "×", "÷", "^", "%", "sqrt", "plus", "minus", "times", "multiplied", "divided")
-        val hasOp = mathKeywords.any { lower.contains(it) }
+        val wordKeywords = listOf("sqrt", "plus", "minus", "times", "multiplied", "divided", "percent of", "% of", "square root")
+        val hasWordOp = wordKeywords.any { lower.contains(it) }
+        val hasSymbolOp = Regex("""(?<![a-zA-Z])[\+\-\*\/×÷\^%](?![a-zA-Z])""").containsMatchIn(lower)
         val hasDigit = lower.any { it.isDigit() } || numberWords.keys.any { lower.contains(it) }
 
-        return hasOp && hasDigit
+        return (hasWordOp || hasSymbolOp) && hasDigit
     }
 
     /**

@@ -70,12 +70,26 @@ class GeneratedNotesViewModel : ViewModel() {
                 uiState = _uiState.value
             )
 
+            val currentDetailed = SessionManager.getLastDetailedNotes() ?: com.example.Simtas.ui.detailednotes.DetailedNotesUiState(lectureTitle = _uiState.value.lectureTitle)
+            val transcript = SessionManager.getLastTranscriptionText() ?: ""
+            val noteId = result.noteId ?: (tid?.toString() ?: (System.currentTimeMillis() / 1000).toString())
+
+            // Persist locally so reopening the lecture loads its own saved notes
+            com.example.Simtas.data.local.LectureNotesStorage.saveLecture(
+                lectureId = noteId,
+                title = _uiState.value.lectureTitle,
+                subject = _uiState.value.subjectBadge,
+                transcriptText = transcript,
+                generatedNotes = _uiState.value.copy(isSaved = true),
+                detailedNotes = currentDetailed
+            )
+
             if (result.isSuccess) {
                 _uiState.update { it.copy(isLoading = false, isSaved = true) }
                 onSuccess(result.noteId)
             } else {
-                _uiState.update { it.copy(isLoading = false) }
-                onSuccess(null)
+                _uiState.update { it.copy(isLoading = false, isSaved = true) }
+                onSuccess(noteId)
             }
         }
     }

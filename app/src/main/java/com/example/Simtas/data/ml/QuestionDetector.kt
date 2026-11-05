@@ -14,7 +14,8 @@ object QuestionDetector {
         "explain", "define", "describe", "clarify", "differentiate",
         "compare", "calculate", "evaluate", "solve", "compute", "summarize",
         "tell me about", "tell me what is", "tell me how", "can you explain",
-        "could you explain", "please explain", "can you tell me"
+        "could you explain", "please explain", "can you tell me",
+        "name", "list", "give", "mention", "state", "identify", "provide"
     )
 
     // Standard interrogative question words
@@ -48,11 +49,16 @@ object QuestionDetector {
         val lower = trimmed.lowercase(Locale.ROOT)
             .replace(Regex("""^[0-9]+[.\-)]\s*"""), "") // remove leading numbering (e.g. "1. ")
             .replace(Regex("""^speaker\s*\d*\s*:\s*"""), "") // remove speaker prefix
+            .replace(",", " ") // handle speech recognition commas like "Name, some" -> "Name some"
+            .replace(Regex("""\s+"""), " ")
+            .trim()
 
-        // 3. Directive commands ("explain ...", "define ...", "calculate ...")
+        // 3. Directive commands ("explain ...", "define ...", "name ...", "calculate ...")
         for (prefix in DIRECTIVE_PREFIXES) {
-            if (lower.startsWith(prefix) && lower.length > prefix.length + 2) {
-                return true
+            if (lower == prefix || lower.startsWith("$prefix ") || lower.startsWith("$prefix\t")) {
+                if (lower.length > prefix.length + 2) {
+                    return true
+                }
             }
         }
 

@@ -183,6 +183,27 @@ object SessionManager {
 
     fun getLastQuizResult(): com.example.Simtas.ui.quizresults.QuizResultsUiState? = inMemoryLastQuizResult
 
+    /**
+     * Clears all per-lecture temporary state so that a new recording session
+     * begins completely isolated with zero artifact bleed.
+     */
+    fun clearSessionLectureData() {
+        inMemoryLastRecordedAudioPath = null
+        inMemoryLastTranscriptText = null
+        inMemoryLastTranscriptParagraphs = emptyList()
+        inMemoryLastTranscriptionId = null
+        inMemoryLastGeneratedNote = null
+        inMemoryLastDetailedNotes = null
+        inMemoryDetectedQAs = emptyList()
+        inMemoryDiscoveredResources = emptyList()
+        inMemoryLastQuizResult = null
+        inMemoryLastJobId = null
+        inMemoryLastNoteId = null
+        inMemoryLastQuizId = null
+        inMemoryLastAudioTitle = null
+        inMemoryLastAudioDuration = null
+    }
+
     fun clearSession(context: Context? = null) {
         inMemoryToken = null
         inMemoryUserId = 1

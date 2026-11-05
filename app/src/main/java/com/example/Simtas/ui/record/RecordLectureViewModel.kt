@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.record
+package com.example.Simtas.ui.record
 
 import android.Manifest
 import android.content.Context
@@ -55,6 +55,9 @@ class RecordLectureViewModel : ViewModel() {
                 onPermissionDenied()
                 return
             }
+
+            // Clear previous lecture artifacts for session isolation
+            SessionManager.clearSessionLectureData()
 
             try {
                 // 1. Prepare private storage directory for audio recordings

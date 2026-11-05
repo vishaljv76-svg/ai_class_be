@@ -643,7 +643,14 @@ class LecturePreviewViewModel : ViewModel() {
             return false
         }
 
-        // Ensure current text and detected Q&As are saved to SessionManager for Transcript & Notes screens
+        // Ensure current text, title, and detected Q&As are saved to SessionManager for Transcript & Notes screens
+        val currentTitle = _uiState.value.lectureTitle
+        val resolvedTitle = com.example.Simtas.data.ml.LectureNotesGenerator.resolveLectureTitle(currentTitle, text)
+        SessionManager.setLastUploadedAudio(
+            audioId = SessionManager.getLastUploadedAudioId() ?: 0,
+            title = resolvedTitle,
+            duration = _uiState.value.totalTimeText
+        )
         val paragraphs = buildParagraphsFromText(text)
         SessionManager.setLastTranscription(text, paragraphs)
         SessionManager.setDetectedQuestionsAndAnswers(_uiState.value.detectedQuestionsAndAnswers)

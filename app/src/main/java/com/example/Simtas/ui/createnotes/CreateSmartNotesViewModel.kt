@@ -24,10 +24,13 @@ class CreateSmartNotesViewModel : ViewModel() {
     }
 
     fun startNotesGeneration() {
-        val audioTitle = SessionManager.getLastUploadedAudioTitle() ?: "Database Normalization"
+        val transcriptText = SessionManager.getLastTranscriptionText() ?: ""
+        val rawAudioTitle = SessionManager.getLastUploadedAudioTitle() ?: "Recorded Lecture Notes"
+        val resolvedTitle = com.example.Simtas.data.ml.LectureNotesGenerator.resolveLectureTitle(rawAudioTitle, transcriptText)
+
         _uiState.update {
             it.copy(
-                subtitleText = "Turning $audioTitle into notes that make sense.",
+                subtitleText = "Turning $resolvedTitle into notes that make sense.",
                 currentStepText = "Analyzing lecture transcript",
                 progressPercent = 45,
                 progressStatusText = "Connecting ideas · Extracting key concepts",
@@ -52,7 +55,7 @@ class CreateSmartNotesViewModel : ViewModel() {
             val result = AiNotesRepository.generateNotes(
                 transcriptionId = transcriptionId,
                 audioId = audioId,
-                lectureTitle = audioTitle,
+                lectureTitle = resolvedTitle,
                 saveToDb = false
             )
 
@@ -69,20 +72,23 @@ class CreateSmartNotesViewModel : ViewModel() {
                 }
             } else {
                 // Generate real notes & summary from actual transcript
-                val transcriptText = SessionManager.getLastTranscriptionText() ?: ""
                 val paragraphs = SessionManager.getLastTranscriptionParagraphs()
                 val duration = SessionManager.getLastUploadedAudioDuration() ?: "Recorded Lecture"
 
                 val extractive = com.example.Simtas.data.ml.LectureNotesGenerator.generate(
                     transcriptText = transcriptText,
                     paragraphs = paragraphs,
-                    lectureTitle = audioTitle,
-                    subject = "Computer Science",
+                    lectureTitle = resolvedTitle,
                     durationText = duration
                 )
 
                 SessionManager.setLastGeneratedNote(extractive.generatedNotes)
                 SessionManager.setLastDetailedNotes(extractive.detailedNotes)
+                SessionManager.setLastUploadedAudio(
+                    audioId = audioId ?: 0,
+                    title = extractive.generatedNotes.lectureTitle,
+                    duration = duration
+                )
 
                 _uiState.update {
                     it.copy(

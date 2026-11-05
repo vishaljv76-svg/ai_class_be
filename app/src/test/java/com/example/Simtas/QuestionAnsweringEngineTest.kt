@@ -157,4 +157,91 @@ class QuestionAnsweringEngineTest {
         assertTrue(firstQa.question.contains("normalization"))
         assertTrue(firstQa.isAnswered)
     }
+
+    // Bug Fix Test: "Name, some domestic and wild animals." must generate animal notes, not Database Normalization
+    @Test
+    fun testAnimalsTranscript_accurateTitleSubjectAndNoRepetition() {
+        val transcript = "Name, some domestic and wild animals."
+
+        // Even if default title passed in is "Database Normalization"
+        val result = LectureNotesGenerator.generate(
+            transcriptText = transcript,
+            lectureTitle = "Database Normalization"
+        )
+        val genNotes = result.generatedNotes
+
+        // 1. Title must NOT be Database Normalization
+        assertEquals("Domestic and Wild Animals", genNotes.lectureTitle)
+
+        // 2. Subject must be Biology
+        assertEquals("Biology", genNotes.subjectBadge)
+
+        // 3. AI Summary must synthesize the topic and answer
+        assertTrue("Summary must discuss domestic and wild animals", genNotes.aiSummaryText.contains("domestic", ignoreCase = true))
+        assertTrue("Summary must discuss wild animals", genNotes.aiSummaryText.contains("wild", ignoreCase = true))
+
+        // 4. Key Takeaways must NOT be identical to the transcript or summary
+        assertTrue("Must have key takeaways", genNotes.keyTakeaways.isNotEmpty())
+        for (takeaway in genNotes.keyTakeaways) {
+            assertFalse("Takeaway must not duplicate summary verbatim", takeaway == genNotes.aiSummaryText)
+            assertFalse("Takeaway must not be raw unformatted transcript", takeaway == transcript)
+        }
+
+        // 5. Questions and Answers section must contain the answered question
+        assertTrue("Must have detected Q&A", genNotes.detectedQuestionsAndAnswers.isNotEmpty())
+        val qa = genNotes.detectedQuestionsAndAnswers[0]
+        assertTrue(qa.isAnswered)
+        assertTrue(qa.answer.contains("Domestic animals", ignoreCase = true))
+        assertTrue(qa.answer.contains("Wild animals", ignoreCase = true))
+
+        // 6. Important terms must be relevant to animals
+        assertTrue(genNotes.importantTerms.contains("Domestic Animals"))
+        assertTrue(genNotes.importantTerms.contains("Wild Animals"))
+    }
+
+    // Bug Fix Test: Empty transcript must display honest clear message with zero invented facts
+    @Test
+    fun testEmptyTranscript_honestMessageAndZeroFakeFacts() {
+        val result = LectureNotesGenerator.generate(
+            transcriptText = "",
+            lectureTitle = "Database Normalization"
+        )
+        val genNotes = result.generatedNotes
+
+        // Title should be neutral recorded lecture, not Database Normalization
+        assertEquals("Recorded Lecture Notes", genNotes.lectureTitle)
+        assertEquals("General Studies", genNotes.subjectBadge)
+        assertTrue(genNotes.aiSummaryText.contains("No spoken content detected"))
+        assertTrue(genNotes.keyTakeaways.isNotEmpty())
+        assertTrue(genNotes.keyTakeaways[0].contains("No speech or notes could be extracted"))
+        assertTrue(genNotes.importantTerms.isEmpty())
+        assertTrue(genNotes.detectedQuestionsAndAnswers.isEmpty())
+    }
+
+    // Bug Fix Test: Multi-sentence lecture summary must not duplicate takeaways
+    @Test
+    fun testMultiSentenceLecture_noRepetitionBetweenSummaryAndTakeaways() {
+        val transcript = "Database normalization is the process of structuring relational tables. " +
+            "It minimizes data redundancy and functional dependency anomalies. " +
+            "The primary objective is to maintain database integrity across modifications. " +
+            "Normal forms provide progressive guidelines for relational schema design."
+
+        val result = LectureNotesGenerator.generate(
+            transcriptText = transcript,
+            lectureTitle = "Database Normalization"
+        )
+        val genNotes = result.generatedNotes
+
+        assertEquals("Database Normalization", genNotes.lectureTitle)
+        assertEquals("Computer Science", genNotes.subjectBadge)
+
+        // Verify summary exists
+        assertTrue(genNotes.aiSummaryText.isNotBlank())
+
+        // Verify takeaways are non-empty and mutually distinct from summary
+        assertTrue(genNotes.keyTakeaways.isNotEmpty())
+        for (takeaway in genNotes.keyTakeaways) {
+            assertFalse("Takeaway must not equal summary verbatim", takeaway == genNotes.aiSummaryText)
+        }
+    }
 }

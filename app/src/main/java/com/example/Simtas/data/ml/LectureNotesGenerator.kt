@@ -418,6 +418,18 @@ object LectureNotesGenerator {
     private fun generateTakeawaysForQA(title: String, qa: DetectedQuestionAnswerItem): List<String> {
         val lower = (title + " " + qa.question).lowercase(Locale.ROOT)
 
+        // Special handling for assistant identity and greeting inquiries
+        if (lower.contains("smartnotes") || lower.contains("study assistant") ||
+            lower.contains("who are you") || lower.contains("what are you") ||
+            QuestionDetector.isIdentityOrAssistant(qa.question) || QuestionDetector.isGreeting(qa.question)
+        ) {
+            return listOf(
+                "Role: SmartNotes AI functions as an offline study assistant for students and educators.",
+                "Core Capabilities: Transcribes speech offline, creates structured study notes, solves math equations, and answers academic queries.",
+                "Offline Privacy: Operates completely on-device without requiring external cloud AI APIs."
+            )
+        }
+
         // Special handling for animal classification questions
         if (lower.contains("animal") || lower.contains("domestic") || lower.contains("wild")) {
             return listOf(
@@ -481,6 +493,12 @@ object LectureNotesGenerator {
      */
     private fun extractTermsFromQA(title: String, qa: DetectedQuestionAnswerItem): List<String> {
         val lower = (title + " " + qa.question).lowercase(Locale.ROOT)
+        if (lower.contains("smartnotes") || lower.contains("study assistant") ||
+            lower.contains("who are you") || lower.contains("what are you") ||
+            QuestionDetector.isIdentityOrAssistant(qa.question) || QuestionDetector.isGreeting(qa.question)
+        ) {
+            return listOf("SmartNotes AI", "Study Assistant", "Lecture Notes", "Voice Recognition", "Offline AI")
+        }
         if (lower.contains("animal") || lower.contains("domestic") || lower.contains("wild")) {
             return listOf("Domestic Animals", "Wild Animals", "Domestication", "Habitat", "Wildlife")
         }
@@ -611,6 +629,11 @@ object LectureNotesGenerator {
         val math = MathExpressionSolver.solveTranscript(trimmed)
         if (math != null) return "Math: ${math.question}"
 
+        // Identity or Greeting prompt (e.g. "Hi, what are you?", "Who are you?", "Hello")
+        if (QuestionDetector.isIdentityOrAssistant(trimmed) || QuestionDetector.isGreeting(trimmed)) {
+            return "SmartNotes AI Assistant"
+        }
+
         val firstLine = trimmed.split("\n")[0].trim()
         val firstSentence = firstLine.split(Regex("""(?<=[.!?])\s+"""))[0].trim()
 
@@ -668,6 +691,10 @@ object LectureNotesGenerator {
     fun detectSubjectAndCourse(transcriptText: String, title: String): Pair<String, String> {
         val combined = (title + " " + transcriptText).lowercase(Locale.ROOT)
 
+        if (QuestionDetector.isIdentityOrAssistant(transcriptText) || QuestionDetector.isGreeting(transcriptText)) {
+            return "General Studies" to "GEN101"
+        }
+
         // Computer Science
         val csKeywords = setOf(
             "database", "sql", "normalization", "algorithm", "data structure",
@@ -704,6 +731,15 @@ object LectureNotesGenerator {
         )
         if (physicsKeywords.any { combined.contains(it) }) {
             return "Physics" to "PHYS101"
+        }
+
+        // Chemistry
+        val chemKeywords = setOf(
+            "chemistry", "atom", "molecule", "chemical", "covalent", "ionic",
+            "acid", "base", "ph scale", "reaction", "periodic table", "element"
+        )
+        if (chemKeywords.any { combined.contains(it) }) {
+            return "Chemistry" to "CHEM101"
         }
 
         return "General Studies" to "GEN101"

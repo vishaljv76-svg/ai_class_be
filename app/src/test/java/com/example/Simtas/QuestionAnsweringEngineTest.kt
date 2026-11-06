@@ -132,6 +132,112 @@ class QuestionAnsweringEngineTest {
     }
 
     @Test
+    fun testGreetings_respondNaturally() {
+        val greetings = listOf("Hi", "Hello", "How are you?", "Hi, how are you?", "Good morning")
+        for (g in greetings) {
+            assertTrue("'$g' must be recognized as an interactive prompt/question", QuestionDetector.isQuestion(g))
+            val result = QuestionAnsweringEngine.answerQuestion(g)
+            assertTrue("'$g' must be answered", result.isAnswered)
+            assertEquals("Answered", result.status)
+            assertTrue("Greeting response must be informative", result.answer.isNotBlank())
+            assertFalse("Greeting must NOT say 'not covered'", result.answer.contains("This question was not covered"))
+        }
+
+        // Check specific natural responses
+        val hiResult = QuestionAnsweringEngine.answerQuestion("Hi")
+        assertTrue(hiResult.answer.contains("Hello! I'm here to help you summarize lectures", ignoreCase = true))
+
+        val howAreYouResult = QuestionAnsweringEngine.answerQuestion("How are you?")
+        assertTrue(howAreYouResult.answer.contains("doing well", ignoreCase = true))
+
+        val hiHowAreYouResult = QuestionAnsweringEngine.answerQuestion("Hi, how are you?")
+        assertTrue(hiHowAreYouResult.answer.contains("doing well", ignoreCase = true))
+    }
+
+    @Test
+    fun testIdentityAndAssistantQuestions_returnExpectedAnswer() {
+        val identityQueries = listOf("Who are you?", "What are you?", "Hi, what are you?", "Hello, who are you?", "Tell me who you are")
+        for (q in identityQueries) {
+            assertTrue("'$q' must be recognized as a question", QuestionDetector.isQuestion(q))
+            val result = QuestionAnsweringEngine.answerQuestion(q)
+            assertTrue("'$q' must be answered", result.isAnswered)
+            assertEquals("I'm SmartNotes AI, your study assistant.", result.answer)
+            assertFalse(result.answer.contains("This question was not covered"))
+        }
+
+        // Assistant capability inquiry
+        val capResult = QuestionAnsweringEngine.answerQuestion("What can you do?")
+        assertTrue(capResult.isAnswered)
+        assertTrue(capResult.answer.contains("record lectures", ignoreCase = true))
+        assertTrue(capResult.answer.contains("study notes", ignoreCase = true))
+    }
+
+    @Test
+    fun testShortQuestions_notClassifiedAsUnsupported() {
+        // Short question: "What is 1NF?"
+        val q1NF = "What is 1NF?"
+        assertTrue(QuestionDetector.isQuestion(q1NF))
+        val ans1NF = QuestionAnsweringEngine.answerQuestion(q1NF)
+        assertTrue("Short question 1NF must be answered", ans1NF.isAnswered)
+        assertTrue(ans1NF.answer.contains("atomic", ignoreCase = true))
+
+        // Short directive: "Define 2NF"
+        val q2NF = "Define 2NF"
+        assertTrue(QuestionDetector.isQuestion(q2NF))
+        val ans2NF = QuestionAnsweringEngine.answerQuestion(q2NF)
+        assertTrue("Short question 2NF must be answered", ans2NF.isAnswered)
+        assertTrue(ans2NF.answer.contains("partial functional dependenc", ignoreCase = true))
+
+        // 2-letter acronym: "What is AI?"
+        val qAI = "What is AI?"
+        assertTrue(QuestionDetector.isQuestion(qAI))
+        val ansAI = QuestionAnsweringEngine.answerQuestion(qAI)
+        assertTrue("Short 2-letter acronym query 'What is AI?' must be answered", ansAI.isAnswered)
+        assertTrue(ansAI.answer.contains("artificial intelligence", ignoreCase = true))
+
+        // Math short expression: "2+2"
+        val qMath = "2+2"
+        assertTrue(QuestionDetector.isQuestion(qMath))
+        val ansMath = QuestionAnsweringEngine.answerQuestion(qMath)
+        assertTrue(ansMath.isAnswered)
+        assertEquals("4", ansMath.answer)
+    }
+
+    @Test
+    fun testLectureNotesGeneration_withHiWhatAreYou_doesNotSayNotCovered() {
+        val transcript = "Hi, what are you?"
+        val result = LectureNotesGenerator.generate(
+            transcriptText = transcript,
+            lectureTitle = "Recorded Lecture"
+        )
+        val genNotes = result.generatedNotes
+        val detailedNotes = result.detailedNotes
+
+        assertEquals("SmartNotes AI Assistant", genNotes.lectureTitle)
+        assertEquals("General Studies", genNotes.subjectBadge)
+
+        // Summary must contain the required answer and must NOT say "not covered"
+        assertFalse("Must NOT contain 'not covered'", genNotes.aiSummaryText.contains("This question was not covered in the current lecture content"))
+        assertTrue("Summary must contain the exact required answer", genNotes.aiSummaryText.contains("I'm SmartNotes AI, your study assistant."))
+
+        // Key Takeaways must be present and relevant
+        assertTrue("Key takeaways must be generated", genNotes.keyTakeaways.isNotEmpty())
+        for (takeaway in genNotes.keyTakeaways) {
+            assertFalse("Takeaways must NOT contain 'not covered'", takeaway.contains("This question was not covered"))
+        }
+
+        // Detected Q&A list must contain the answered question
+        assertTrue(genNotes.detectedQuestionsAndAnswers.isNotEmpty())
+        val primaryQA = genNotes.detectedQuestionsAndAnswers.first()
+        assertEquals("Hi, what are you?", primaryQA.question)
+        assertEquals("I'm SmartNotes AI, your study assistant.", primaryQA.answer)
+        assertTrue(primaryQA.isAnswered)
+
+        // Detailed notes callout must display the answer
+        assertEquals("I'm SmartNotes AI, your study assistant.", detailedNotes.calloutContent)
+    }
+
+    @Test
     fun testDifferentQuestionsReceiveDifferentAnswers() {
         val q1 = "What is 1NF?"
         val q2 = "What is 2NF?"

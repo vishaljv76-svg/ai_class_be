@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.Simtas.data.ml.OfflineSpeechRecognizer
+import com.example.Simtas.data.ml.WhisperModelManager
 import com.example.Simtas.data.remote.SessionManager
 import com.example.Simtas.ui.transcript.TranscriptParagraph
 import kotlinx.coroutines.Dispatchers
@@ -277,8 +278,87 @@ class LecturePreviewViewModel : ViewModel() {
         }
     }
 
+    private val downloadLock = Any()
+    @Volatile
+    private var isDownloadingModel = false
+
+    /**
+     * Ensures the offline Whisper model files (~99 MB) are installed before transcription.
+     * If missing, downloads all required model files with progress reporting.
+     * Prevents duplicate simultaneous downloads and runs asynchronously.
+     */
+    private suspend fun ensureModelInstalled(context: Context): Boolean {
+        if (WhisperModelManager.isModelInstalled(context)) {
+            return true
+        }
+
+        synchronized(downloadLock) {
+            if (isDownloadingModel) {
+                _uiState.update {
+                    it.copy(
+                        isTranscribing = true,
+                        statusText = "Downloading speech model in progress...",
+                        errorMessage = null
+                    )
+                }
+                return false
+            }
+            isDownloadingModel = true
+        }
+
+        _uiState.update {
+            it.copy(
+                isTranscribing = true,
+                statusText = "Downloading offline speech model (~99 MB)...",
+                transcriptionProgress = 0,
+                errorMessage = null
+            )
+        }
+
+        val downloadResult = try {
+            WhisperModelManager.downloadModel(context) { progress ->
+                _uiState.update {
+                    it.copy(
+                        statusText = progress.statusMessage,
+                        transcriptionProgress = progress.percentage
+                    )
+                }
+            }
+        } finally {
+            synchronized(downloadLock) {
+                isDownloadingModel = false
+            }
+        }
+
+        return if (downloadResult.isSuccess && WhisperModelManager.isModelInstalled(context)) {
+            _uiState.update {
+                it.copy(
+                    statusText = "Offline model ready! Transcribing speech...",
+                    transcriptionProgress = 5,
+                    errorMessage = null
+                )
+            }
+            true
+        } else {
+            val err = downloadResult.exceptionOrNull()?.localizedMessage
+                ?: "Failed to download offline speech model. Internet connection required for first-time setup."
+            _uiState.update {
+                it.copy(
+                    isTranscribing = false,
+                    statusText = "Model download required",
+                    errorMessage = "$err Tap mic or transcribe to retry."
+                )
+            }
+            false
+        }
+    }
+
     private fun transcribeVoiceFile(context: Context, file: File) {
         viewModelScope.launch(Dispatchers.Default) {
+            if (!ensureModelInstalled(context)) {
+                return@launch
+            }
+
             _uiState.update {
                 it.copy(
                     isTranscribing = true,
@@ -333,6 +413,10 @@ class LecturePreviewViewModel : ViewModel() {
         if (!file.exists() || file.length() == 0L) return
 
         viewModelScope.launch(Dispatchers.Default) {
+            if (!ensureModelInstalled(context)) {
+                return@launch
+            }
+
             _uiState.update {
                 it.copy(
                     isTranscribing = true,

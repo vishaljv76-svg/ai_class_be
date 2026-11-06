@@ -51,9 +51,19 @@ object QuestionAnsweringEngine {
             return mathSolution
         }
 
+        // --- Priority 0.5: Greetings & General Assistant / Identity Queries ---
+        val generalAssistantAnswer = evaluateGeneralOrGreeting(cleanQ)
+        if (generalAssistantAnswer != null) {
+            return generalAssistantAnswer
+        }
+
+        // Strip leading greeting prefix if any for lecture search (e.g. "Hello, what is 2NF?" -> "what is 2NF?")
+        val strippedGreeting = QuestionDetector.stripGreetingPrefix(cleanQ)
+        val effectiveLectureQ = if (strippedGreeting.isNotBlank()) strippedGreeting else cleanQ
+
         // --- Priority 1: Current Lecture Transcript ---
         if (transcriptText.isNotBlank()) {
-            val transcriptAnswer = TranscriptQaRetriever.retrieveAnswer(cleanQ, transcriptText)
+            val transcriptAnswer = TranscriptQaRetriever.retrieveAnswer(effectiveLectureQ, transcriptText)
             if (transcriptAnswer != null) {
                 return transcriptAnswer
             }
@@ -61,7 +71,7 @@ object QuestionAnsweringEngine {
 
         // --- Priority 2: Current Lecture's Full Generated Study Notes ---
         if (detailedNotes != null) {
-            val notesAnswer = searchDetailedStudyNotes(cleanQ, detailedNotes)
+            val notesAnswer = searchDetailedStudyNotes(effectiveLectureQ, detailedNotes)
             if (notesAnswer != null) {
                 return notesAnswer
             }
@@ -69,26 +79,104 @@ object QuestionAnsweringEngine {
 
         // --- Priority 3: Current Lecture Summary & Key Takeaways ---
         if (summaryText.isNotBlank() || keyTakeaways.isNotEmpty()) {
-            val summaryAnswer = searchSummaryAndTakeaways(cleanQ, summaryText, keyTakeaways)
+            val summaryAnswer = searchSummaryAndTakeaways(effectiveLectureQ, summaryText, keyTakeaways)
             if (summaryAnswer != null) {
                 return summaryAnswer
             }
         }
 
-        // --- Priority 4: Existing Offline Knowledge & Reasoning Engine ---
-        val generalAnswer = OfflineReasoningEvaluator.evaluate(cleanQ)
+        // --- Priority 4: Universal Student Knowledge & Offline Reasoning ---
+        // 4a. Programming Assistant (Code Generation, Syntax & Error Debugging)
+        val programmingAnswer = ProgrammingAssistantEngine.answer(effectiveLectureQ)
+        if (programmingAnswer != null) {
+            return programmingAnswer
+        }
+
+        // 4b. Universal Student Knowledge Base (Computer Science, Physics, Chemistry, Biology)
+        val universalAnswer = UniversalStudentKnowledgeBase.findKnowledge(effectiveLectureQ)
+        if (universalAnswer != null) {
+            return universalAnswer
+        }
+
+        // 4c. Existing Offline Knowledge & Comparative Reasoning Engine
+        val generalAnswer = OfflineReasoningEvaluator.evaluate(effectiveLectureQ)
         if (generalAnswer != null) {
             return generalAnswer
         }
 
-        // --- Priority 5: Honest Absentee Indication ---
+        // --- Priority 5: Honest Absentee Indication for Unsupported Questions ---
         return DetectedQuestionAnswerItem(
             question = cleanQ,
             answer = "This question was not covered in the current lecture content.",
-            explanation = "No matching explanation was found in the recording or transcript.",
+            explanation = "No matching explanation was found in the lecture recording or available offline knowledge.",
             status = "Not in lecture",
             isAnswered = false
         )
+    }
+
+    /**
+     * Evaluates greetings and general identity/assistant inquiries.
+     * Answers naturally for greetings ("Hi", "Hello", "How are you?"),
+     * and answers "I'm SmartNotes AI, your study assistant." for identity inquiries ("Who are you?", "What are you?").
+     */
+    fun evaluateGeneralOrGreeting(question: String): DetectedQuestionAnswerItem? {
+        val cleanQ = question.trim()
+        if (cleanQ.isEmpty()) return null
+
+        val category = QuestionDetector.classify(cleanQ)
+
+        // 1. Identity Inquiry: "Who are you?", "What are you?", "Hi, what are you?", "Hello, who are you?"
+        if (category == QuestionDetector.QuestionCategory.GENERAL_IDENTITY) {
+            return DetectedQuestionAnswerItem(
+                question = cleanQ,
+                answer = "I'm SmartNotes AI, your study assistant.",
+                explanation = "SmartNotes AI is an offline study assistant designed to record lectures, transcribe speech, generate notes, and answer academic questions.",
+                status = "Answered",
+                isAnswered = true
+            )
+        }
+
+        // 2. Capability Inquiry: "What can you do?", "How do you work?"
+        if (category == QuestionDetector.QuestionCategory.GENERAL_ASSISTANT) {
+            return DetectedQuestionAnswerItem(
+                question = cleanQ,
+                answer = "I can record lectures, transcribe speech offline, generate structured study notes, solve mathematical expressions, and answer your study questions.",
+                explanation = "SmartNotes AI provides complete offline speech recognition and study note synthesis.",
+                status = "Answered",
+                isAnswered = true
+            )
+        }
+
+        // 3. Greeting Inquiry: "Hi", "Hello", "How are you?", "Hi, how are you?"
+        if (category == QuestionDetector.QuestionCategory.GREETING) {
+            val lower = cleanQ.lowercase(Locale.ROOT)
+                .replace("?", "")
+                .replace("!", "")
+                .replace(".", "")
+                .replace(",", " ")
+                .replace(Regex("""\s+"""), " ")
+                .trim()
+
+            val answerText = if (lower.contains("how are you") || lower.contains("how are you doing") || lower.contains("hows it going")) {
+                if (lower.startsWith("hi") || lower.startsWith("hello") || lower.startsWith("hey")) {
+                    "Hello! I'm doing well, thank you! How can I help you with your studies today?"
+                } else {
+                    "I'm doing well, thank you! Ready to assist you with your lecture notes and study questions."
+                }
+            } else {
+                "Hello! I'm here to help you summarize lectures, create study notes, and answer your academic questions."
+            }
+
+            return DetectedQuestionAnswerItem(
+                question = cleanQ,
+                answer = answerText,
+                explanation = "SmartNotes AI is active and ready to assist with your coursework.",
+                status = "Answered",
+                isAnswered = true
+            )
+        }
+
+        return null
     }
 
     /**
@@ -111,7 +199,7 @@ object QuestionAnsweringEngine {
     ): DetectedQuestionAnswerItem? {
         val cleanLower = cleanQuery(question)
         if (cleanLower.isBlank()) return null
-        val queryWords = cleanLower.split(" ").filter { it.length > 2 }
+        val queryWords = cleanLower.split(" ").filter { it.isNotBlank() && it.length >= 2 }
         if (queryWords.isEmpty()) return null
 
         // 1. Check Section 2 Topic-Wise Bullets (Highest priority in study notes)
@@ -218,7 +306,7 @@ object QuestionAnsweringEngine {
     ): DetectedQuestionAnswerItem? {
         val cleanLower = cleanQuery(question)
         if (cleanLower.isBlank()) return null
-        val queryWords = cleanLower.split(" ").filter { it.length > 2 }
+        val queryWords = cleanLower.split(" ").filter { it.isNotBlank() && it.length >= 2 }
         if (queryWords.isEmpty()) return null
 
         // 1. Search key takeaways

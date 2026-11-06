@@ -21,7 +21,15 @@ object OfflineReasoningEvaluator {
         "2nf and 3nf" to "2NF eliminates partial functional dependencies, whereas 3NF builds upon 2NF by eliminating transitive dependencies, ensuring non-key attributes depend solely on the candidate key and not on other non-key attributes.",
         "1nf and 3nf" to "1NF ensures atomicity of column values and eliminates repeating groups, while 3NF achieves a higher level of normalization by eliminating both partial and transitive dependencies.",
         "domestic and wild animals" to "Domestic animals are domesticated and cared for by humans for companionship, labor, or agriculture (e.g. dogs, cats, cows, horses), whereas wild animals survive independently in natural ecosystems without human domestication (e.g. lions, tigers, elephants, bears).",
-        "supervised and unsupervised learning" to "Supervised learning trains predictive models on labeled datasets with known input-output pairs, while unsupervised learning discovers inherent patterns, groupings, and clusters from unlabeled data without pre-existing targets."
+        "supervised and unsupervised learning" to "Supervised learning trains predictive models on labeled datasets with known input-output pairs, while unsupervised learning discovers inherent patterns, groupings, and clusters from unlabeled data without pre-existing targets.",
+        "stack and queue" to "A Stack operates on the LIFO (Last-In, First-Out) principle where elements are inserted and removed at the same top end. A Queue operates on the FIFO (First-In, First-Out) principle where elements are inserted at the rear (enqueue) and removed from the front (dequeue).",
+        "process and thread" to "A Process is an executing instance of a program with its own independent memory address space and resources. A Thread is a lightweight unit of execution within a process that shares memory and resources with sibling threads.",
+        "tcp and udp" to "TCP is a connection-oriented, reliable protocol that guarantees in-order packet delivery using acknowledgments and a 3-way handshake. UDP is a connectionless, lightweight protocol that provides low-latency, best-effort transmission without retransmissions.",
+        "array and linked list" to "An Array stores elements in contiguous memory, offering O(1) index-based access but fixed capacity and O(n) insertions. A Linked List stores nodes in scattered memory linked by pointers, offering dynamic size and O(1) insertions at the head, but O(n) sequential traversal.",
+        "dna and rna" to "DNA is a double-stranded molecule with deoxyribose sugar and Thymine for long-term genetic storage. RNA is single-stranded with ribose sugar and Uracil, translating genetic instructions into proteins.",
+        "mitosis and meiosis" to "Mitosis is a single division producing 2 genetically identical diploid daughter cells for body growth and repair. Meiosis consists of 2 divisions producing 4 genetically diverse haploid gametes for sexual reproduction.",
+        "compiler and interpreter" to "A Compiler translates entire source code into machine code before execution (e.g. C, C++). An Interpreter translates and executes code line-by-line at runtime (e.g. Python, JavaScript).",
+        "primary key and foreign key" to "A Primary Key uniquely identifies every record in its own table and cannot contain NULL values. A Foreign Key references a Primary Key in another table, establishing relationships and enforcing referential integrity."
     )
 
     // Verified foundational curriculum definitions
@@ -43,6 +51,7 @@ object OfflineReasoningEvaluator {
         "domestic animals" to "Domestic animals are species that have been selectively bred and adapted over generations to live in close association with humans for companionship, labor, or agriculture.",
         "wild animals" to "Wild animals are non-domesticated species that live and reproduce independently in natural ecosystems such as forests, plains, and oceans without human management.",
         "artificial intelligence" to "Artificial intelligence is the simulation of human intelligence processes by computer systems, encompassing learning, reasoning, and self-correction.",
+        "ai" to "Artificial intelligence (AI) is the simulation of human intelligence processes by computer systems, encompassing learning, reasoning, and self-correction.",
         "machine learning" to "Machine learning is a branch of artificial intelligence focused on building applications that learn from data and improve accuracy over time without being explicitly programmed.",
         "deep learning" to "Deep learning is a subset of machine learning based on artificial neural networks with multiple layers to model complex patterns in data.",
         "photosynthesis" to "Photosynthesis is the biological process used by green plants and algae to convert light energy into chemical energy stored in glucose.",
@@ -55,6 +64,7 @@ object OfflineReasoningEvaluator {
         "algorithm" to "An algorithm is a finite sequence of unambiguous instructions used to solve a specific problem or perform a computation.",
         "data structure" to "A data structure is a specialized format for organizing, processing, retrieving, and storing data efficiently in memory.",
         "operating system" to "An operating system is system software that manages computer hardware, software resources, and provides common services for computer programs.",
+        "os" to "An operating system (OS) is system software that manages computer hardware, software resources, and provides common services for computer programs.",
         "cache" to "A cache is a high-speed hardware or software storage layer that stores a subset of data so that future requests for that data are served faster."
     )
 
@@ -130,6 +140,12 @@ object OfflineReasoningEvaluator {
                     )
                 }
             }
+        }
+
+        // 6. Universal Student Knowledge Base (Computer Science, Physics, Chemistry, Biology)
+        val universalAnswer = UniversalStudentKnowledgeBase.findKnowledge(cleanQ)
+        if (universalAnswer != null) {
+            return universalAnswer
         }
 
         return null

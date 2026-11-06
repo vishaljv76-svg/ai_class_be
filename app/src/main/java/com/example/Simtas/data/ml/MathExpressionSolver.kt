@@ -47,7 +47,9 @@ object MathExpressionSolver {
     private val STANDALONE_MATH_REGEX = Regex(
         """(?i)\b([0-9.]+)\s*(\+|\-|\*|/|×|÷|x|\^)\s*([0-9.]+)\b|""" +
                 """(?i)\b([0-9.]+)\s*(?:%|percent)\s*of\s*([0-9.]+)\b|""" +
-                """(?i)(?:the\s+)?(?:square\s+root|sqrt)\s*(?:of\s+)?(?:\(?\s*([0-9.]+)\s*\)?)|""" +
+                """(?i)(?:the\s+)?(?:square\s+root|sqrt|cube\s+root|cbrt)\s*(?:of\s+)?(?:\(?\s*([0-9.]+)\s*\)?)|""" +
+                """(?i)\b([0-9.]+)\s*(?:squared|cubed)\b|""" +
+                """(?i)\b([0-9.]+)\s*(?:to\s+the\s+power\s+(?:of\s+)?|\^)\s*([0-9.]+)\b|""" +
                 """(?i)\b([0-9.]+)\s*(\+|\-|\*|/|×|÷)\s*([0-9.]+)\s*(\+|\-|\*|/|×|÷)\s*([0-9.]+)\b|""" +
                 """(?i)\(?\s*([0-9.]+)\s*(\+|\-|\*|/|×|÷)\s*([0-9.]+)\s*\)?\s*(\*|/|\+|\-)\s*([0-9.]+)"""
     )
@@ -60,13 +62,22 @@ object MathExpressionSolver {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return false
 
+        // Check for equation solving pattern: e.g. "solve 2x + 6 = 14" or "2x + 6 = 14"
+        if (trimmed.contains("=") && (trimmed.contains("x", ignoreCase = true) || trimmed.contains("solve", ignoreCase = true))) {
+            val hasDigit = trimmed.any { it.isDigit() }
+            if (hasDigit) return true
+        }
+
         // Check standalone pattern
         if (STANDALONE_MATH_REGEX.containsMatchIn(trimmed)) {
             return true
         }
 
         val lower = trimmed.lowercase(Locale.ROOT)
-        val wordKeywords = listOf("sqrt", "plus", "minus", "times", "multiplied", "divided", "percent of", "% of", "square root")
+        val wordKeywords = listOf(
+            "sqrt", "cbrt", "plus", "minus", "times", "multiplied", "divided", "percent of", "% of",
+            "square root", "cube root", "squared", "cubed", "power of", "solve for x", "solve equation"
+        )
         val hasWordOp = wordKeywords.any { lower.contains(it) }
         val hasSymbolOp = Regex("""(?<![a-zA-Z])[\+\-\*\/×÷\^%](?![a-zA-Z])""").containsMatchIn(lower)
         val hasDigit = lower.any { it.isDigit() } || numberWords.keys.any { lower.contains(it) }
@@ -75,7 +86,7 @@ object MathExpressionSolver {
     }
 
     /**
-     * Solves a transcript containing a mathematical expression.
+     * Solves a transcript containing a mathematical expression or equation.
      * Returns a structured MathSolution if found, or null if ordinary lecture text.
      */
     fun solveTranscript(transcriptText: String): MathSolution? {
@@ -90,15 +101,90 @@ object MathExpressionSolver {
             return null
         }
 
+        // Check for linear equation first (e.g. "solve for x: 2x + 6 = 14")
+        val equationSolution = solveLinearEquation(textToProcess)
+        if (equationSolution != null) {
+            return equationSolution
+        }
+
         // 1. Try to find standalone expression match
-        val match = STANDALONE_MATH_REGEX.find(textToProcess)
-        val targetExpression = if (match != null) {
-            match.value.trim()
-        } else {
+        val isPureMathExpression = textToProcess.all { it.isDigit() || it.isWhitespace() || it in "+-*/×÷^%.()" }
+        val targetExpression = if (isPureMathExpression) {
             textToProcess
+        } else {
+            val match = STANDALONE_MATH_REGEX.find(textToProcess)
+            if (match != null) match.value.trim() else textToProcess
         }
 
         return solve(targetExpression, textToProcess)
+    }
+
+    /**
+     * Solves linear equations of the form ax + b = c or ax = c with step-by-step steps.
+     */
+    fun solveLinearEquation(text: String): MathSolution? {
+        val lower = text.lowercase(Locale.ROOT)
+            .replace("solve for x:", "")
+            .replace("solve for x", "")
+            .replace("solve equation", "")
+            .replace("solve", "")
+            .replace("?", "")
+            .trim()
+
+        if (!lower.contains("=") || !lower.contains("x")) return null
+
+        val sides = lower.split("=")
+        if (sides.size != 2) return null
+
+        val leftStr = sides[0].trim()
+        val rightStr = sides[1].trim()
+
+        val rightVal = rightStr.toDoubleOrNull() ?: return null
+
+        // Pattern: ax + b  or  ax - b  or  ax
+        val linearRegex = Regex("""^([+-]?\s*\d*(?:\.\d+)?)\s*x\s*([+-]\s*\d+(?:\.\d+)?)?$""")
+        val match = linearRegex.find(leftStr) ?: return null
+
+        val aRaw = match.groupValues[1].replace(" ", "")
+        val a = when {
+            aRaw.isEmpty() || aRaw == "+" -> 1.0
+            aRaw == "-" -> -1.0
+            else -> aRaw.toDoubleOrNull() ?: return null
+        }
+        if (a == 0.0) return null
+
+        val bRaw = match.groupValues[2].replace(" ", "")
+        val b = if (bRaw.isNotEmpty()) bRaw.toDoubleOrNull() ?: 0.0 else 0.0
+
+        // ax + b = c => ax = c - b => x = (c - b) / a
+        val cMinusB = rightVal - b
+        val xVal = cMinusB / a
+        val formattedX = formatResult(xVal)
+        val formattedA = formatResult(a)
+        val formattedB = formatResult(abs(b))
+        val formattedC = formatResult(rightVal)
+
+        val steps = StringBuilder()
+        steps.append("Equation: $leftStr = $rightStr\n")
+        if (b != 0.0) {
+            val opWord = if (b > 0) "Subtract $formattedB from" else "Add $formattedB to"
+            steps.append("Step 1: $opWord both sides: ${if (a == 1.0) "x" else "${formattedA}x"} = ${formatResult(cMinusB)}\n")
+            if (a != 1.0) {
+                steps.append("Step 2: Divide both sides by $formattedA: x = $formattedX\n")
+            }
+        } else if (a != 1.0) {
+            steps.append("Step 1: Divide both sides by $formattedA: x = $formattedX\n")
+        }
+        steps.append("Result: x = $formattedX")
+
+        return MathSolution(
+            isSuccess = true,
+            question = text.trim(),
+            rawInput = text.trim(),
+            answer = "x = $formattedX",
+            numericValue = xVal,
+            explanation = steps.toString()
+        )
     }
 
     /**
@@ -157,6 +243,22 @@ object MathExpressionSolver {
         val sqrtRegex = Regex("""(?:the\s+)?(?:square\s+root|sqrt)\s*(?:of\s+)?(?:\(?\s*([0-9.]+)\s*\)?)""")
         text = sqrtRegex.replace(text) { m ->
             "sqrt(${m.groupValues[1]})"
+        }
+
+        // Handle cube root: cbrt(27) or cube root of 27
+        val cbrtRegex = Regex("""(?:the\s+)?(?:cube\s+root|cbrt)\s*(?:of\s+)?(?:\(?\s*([0-9.]+)\s*\)?)""")
+        text = cbrtRegex.replace(text) { m ->
+            "cbrt(${m.groupValues[1]})"
+        }
+
+        // Handle natural language powers
+        text = Regex("""([0-9.]+)\s*(?:to\s+the\s+power\s+(?:of\s+)?|\^)\s*([0-9.]+)""").replace(text, "($1 ^ $2)")
+        text = Regex("""([0-9.]+)\s*squared""").replace(text, "($1 ^ 2)")
+        text = Regex("""([0-9.]+)\s*cubed""").replace(text, "($1 ^ 3)")
+
+        // Handle fraction to percentage: e.g. "3/4 as a percentage"
+        text = Regex("""([0-9.]+)\s*/\s*([0-9.]+)\s*(?:as\s+a\s+percentage|to\s+percentage)""").replace(text) { m ->
+            "((${m.groupValues[1]} / ${m.groupValues[2]}) * 100)"
         }
 
         // Handle percentage: 20% of 200 or 20 percent of 200
@@ -226,11 +328,27 @@ object MathExpressionSolver {
             return "$a percent of $b gives $answer."
         }
 
+        // Cube root
+        val cbrtMatch = Regex("""(?:cube\s+root|cbrt)\s*(?:of\s+)?(?:\(?\s*([0-9.]+)\s*\)?)""").find(lower)
+        if (cbrtMatch != null) {
+            val a = cbrtMatch.groupValues[1]
+            return "Cube root of $a gives $answer."
+        }
+
         // Square root: sqrt(64) -> "Square root of 64 gives 8."
         val sqrtMatch = Regex("""(?:square\s+root|sqrt)\s*(?:of\s+)?(?:\(?\s*([0-9.]+)\s*\)?)""").find(lower)
         if (sqrtMatch != null) {
             val a = sqrtMatch.groupValues[1]
             return "Square root of $a gives $answer."
+        }
+
+        // Powers: 2^8 or 2 to the power of 5
+        val powMatch = Regex("""([0-9.]+)\s*(?:\^|to the power of|power)\s*([0-9.]+)""").find(lower)
+            ?: Regex("""([0-9.]+)\s*\^\s*([0-9.]+)""").find(normalized)
+        if (powMatch != null) {
+            val a = powMatch.groupValues[1]
+            val b = powMatch.groupValues[2]
+            return "Raising $a to the power of $b gives $answer."
         }
 
         // Addition: 2+2 -> "Adding 2 and 2 gives 4."
@@ -410,6 +528,7 @@ object MathExpressionSolver {
                         if (arg < 0) throw ArithmeticException("Cannot calculate square root of a negative number")
                         sqrt(arg)
                     }
+                    "cbrt" -> Math.cbrt(arg)
                     "abs" -> abs(arg)
                     "round" -> round(arg)
                     "floor" -> floor(arg)

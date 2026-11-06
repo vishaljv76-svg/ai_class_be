@@ -44,7 +44,7 @@ object TranscriptQaRetriever {
         if (cleanLower.isBlank()) return null
 
         val queryKeywords = cleanLower.split("\\s+".toRegex())
-            .filter { it.length > 2 && it !in STOP_WORDS }
+            .filter { it.length >= 2 && it !in STOP_WORDS }
 
         if (queryKeywords.isEmpty()) return null
 

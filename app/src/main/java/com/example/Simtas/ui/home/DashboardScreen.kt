@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.home
+package com.example.Simtas.ui.home
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -103,7 +103,8 @@ fun DashboardScreen(
     onAiQuizClick: () -> Unit = {},
     onViewAllNotesClick: () -> Unit = {},
     onNoteClick: (String) -> Unit = {},
-    onTabSelect: (HomeBottomTab) -> Unit = {}
+    onTabSelect: (HomeBottomTab) -> Unit = {},
+    onAiCopilotClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -135,7 +136,8 @@ fun DashboardScreen(
         onTabSelect = { tab ->
             viewModel.selectTab(tab)
             onTabSelect(tab)
-        }
+        },
+        onAiCopilotClick = onAiCopilotClick
     )
 }
 
@@ -150,7 +152,8 @@ fun DashboardScreenContent(
     onAiQuizClick: () -> Unit = {},
     onViewAllNotesClick: () -> Unit = {},
     onNoteClick: (String) -> Unit = {},
-    onTabSelect: (HomeBottomTab) -> Unit = {}
+    onTabSelect: (HomeBottomTab) -> Unit = {},
+    onAiCopilotClick: () -> Unit = {}
 ) {
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -205,7 +208,8 @@ fun DashboardScreenContent(
                 // 3. Featured AI Study Assistant Luxury Card
                 AiStudyAssistantBanner(
                     onAiQuizClick = onAiQuizClick,
-                    onRecordLectureClick = onRecordLectureClick
+                    onRecordLectureClick = onRecordLectureClick,
+                    onAiCopilotClick = onAiCopilotClick
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -492,7 +496,8 @@ private fun UserGreetingRow(
 @Composable
 private fun AiStudyAssistantBanner(
     onAiQuizClick: () -> Unit,
-    onRecordLectureClick: () -> Unit
+    onRecordLectureClick: () -> Unit,
+    onAiCopilotClick: () -> Unit = {}
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "AiPulse")
     val pulseScale by infiniteTransition.animateFloat(
@@ -566,6 +571,7 @@ private fun AiStudyAssistantBanner(
                         .clip(RoundedCornerShape(14.dp))
                         .background(Color.White.copy(alpha = 0.20f))
                         .border(1.dp, Color.White.copy(alpha = 0.30f), RoundedCornerShape(14.dp))
+                        .clickable { onAiCopilotClick() }
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -657,6 +663,30 @@ private fun AiStudyAssistantBanner(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Record",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+
+                // AI Copilot Chat Action Button
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.White.copy(alpha = 0.22f))
+                        .border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
+                        .clickable { onAiCopilotClick() }
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Canvas(modifier = Modifier.size(14.dp)) {
+                            drawSparkleStarIcon(Color.White)
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Ask AI",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White

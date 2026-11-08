@@ -51,6 +51,7 @@ import com.example.Simtas.ui.notes.GeneratedNotesScreen
 import com.example.Simtas.ui.onboarding.StudentOnboardingScreen
 import com.example.Simtas.ui.preview.LecturePreviewScreen
 import com.example.Simtas.ui.profile.ProfileSettingsScreen
+import com.example.Simtas.ui.qa.QaAssistantBottomSheet
 import com.example.Simtas.ui.quiz.QuizGeneratorScreen
 import com.example.Simtas.ui.quizquestion.QuizQuestionScreen
 import com.example.Simtas.ui.quizresults.QuizResultsScreen
@@ -111,6 +112,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun MainAppNavigation() {
     val context = LocalContext.current
@@ -131,6 +133,7 @@ fun MainAppNavigation() {
     var showNotesOptionsMenu by remember { mutableStateOf(false) }
     var showDiscardRecordDialog by remember { mutableStateOf(false) }
     var showDiscardPreviewDialog by remember { mutableStateOf(false) }
+    var showAiAssistantSheet by remember { mutableStateOf(false) }
 
     // Automatic session validation & persistent login check on app startup
     LaunchedEffect(currentScreen) {
@@ -260,6 +263,9 @@ fun MainAppNavigation() {
                         HomeBottomTab.Notes -> currentScreen = AppScreen.MyNotes
                         HomeBottomTab.Profile -> currentScreen = AppScreen.ProfileSettings
                     }
+                },
+                onAiCopilotClick = {
+                    showAiAssistantSheet = true
                 }
             )
         }
@@ -447,7 +453,14 @@ fun MainAppNavigation() {
         }
     }
 
-    // --- Interactive Action Dialogs ---
+    // --- Interactive Action Dialogs & Sheets ---
+
+    // 0. SmartNotes AI Assistant Bottom Sheet
+    if (showAiAssistantSheet) {
+        QaAssistantBottomSheet(
+            onDismissRequest = { showAiAssistantSheet = false }
+        )
+    }
 
     // 1. Dashboard Notification Alerts Dialog
     if (showNotificationsDialog) {

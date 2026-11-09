@@ -1,6 +1,7 @@
 package com.example.Simtas.data.repository
 
 import com.example.Simtas.data.remote.SessionManager
+import com.example.Simtas.network.ChatConversationItem
 import com.example.Simtas.network.ChatHistoryMessageItem
 import com.example.Simtas.network.ChatHistoryRequest
 import com.example.Simtas.network.ChatMessageContent
@@ -142,5 +143,39 @@ object ChatRepository {
             )
         }
     }
-}
 
+    suspend fun listConversations(): ChatResult<List<ChatConversationItem>> = withContext(Dispatchers.IO) {
+        if (!SessionManager.isLoggedIn()) {
+            return@withContext ChatResult.Error(
+                message = "You are not logged in. Please log in to view previous conversations.",
+                errorCode = "UNAUTHENTICATED",
+                isAuthError = true
+            )
+        }
+
+        try {
+            val response = RetrofitClient.apiService.listConversations()
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                if (body.success) {
+                    ChatResult.Success(body.conversations)
+                } else {
+                    ChatResult.Error(
+                        message = body.message ?: "Failed to load conversations",
+                        errorCode = body.error_code
+                    )
+                }
+            } else {
+                ChatResult.Error(
+                    message = "Server error (${response.code()})",
+                    errorCode = "HTTP_${response.code()}"
+                )
+            }
+        } catch (e: Exception) {
+            ChatResult.Error(
+                message = e.localizedMessage ?: "Failed to fetch conversations",
+                errorCode = "NETWORK_EXCEPTION"
+            )
+        }
+    }
+}

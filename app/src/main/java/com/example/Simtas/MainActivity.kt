@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.Simtas.data.remote.SessionManager
+import com.example.Simtas.ui.chat.AiChatScreen
 import com.example.Simtas.ui.createnotes.CreateSmartNotesScreen
 import com.example.Simtas.ui.detailednotes.DetailedNotesScreen
 import com.example.Simtas.ui.detailednotes.DetailedNotesViewModel
@@ -94,7 +95,8 @@ enum class AppScreen {
     QuizQuestion,
     QuizResults,
     MyNotes,
-    ProfileSettings
+    ProfileSettings,
+    AiChat
 }
 
 class MainActivity : ComponentActivity() {
@@ -265,7 +267,7 @@ fun MainAppNavigation() {
                     }
                 },
                 onAiCopilotClick = {
-                    showAiAssistantSheet = true
+                    currentScreen = AppScreen.AiChat
                 }
             )
         }
@@ -448,6 +450,13 @@ fun MainAppNavigation() {
                         HomeBottomTab.Notes -> currentScreen = AppScreen.MyNotes
                         HomeBottomTab.Profile -> currentScreen = AppScreen.ProfileSettings
                     }
+                }
+            )
+        }
+        AppScreen.AiChat -> {
+            AiChatScreen(
+                onBackClick = {
+                    currentScreen = AppScreen.HomeDashboard
                 }
             )
         }

@@ -38,6 +38,10 @@ data class ChatHistoryRequest(
     val conversation_id: Int
 )
 
+data class ChatListConversationsRequest(
+    val action: String = "list_conversations"
+)
+
 data class ChatMessageContent(
     val id: Int? = null,
     val role: String = "user",
@@ -60,6 +64,18 @@ data class ChatConversationSummary(
     val updated_at: String? = null
 )
 
+data class ChatConversationItem(
+    val id: Int,
+    val title: String? = null,
+    val conversation_title: String? = null,
+    val created_at: String? = null,
+    val updated_at: String? = null,
+    val message_count: Int? = null
+) {
+    val displayTitle: String
+        get() = (title ?: conversation_title ?: "Conversation #$id").ifBlank { "Conversation #$id" }
+}
+
 data class ChatSendResponse(
     val success: Boolean,
     val conversation_id: Int? = null,
@@ -75,6 +91,13 @@ data class ChatHistoryResponse(
     val success: Boolean,
     val conversation: ChatConversationSummary? = null,
     val messages: List<ChatHistoryMessageItem> = emptyList(),
+    val error_code: String? = null,
+    val message: String? = null
+)
+
+data class ChatListConversationsResponse(
+    val success: Boolean,
+    val conversations: List<ChatConversationItem> = emptyList(),
     val error_code: String? = null,
     val message: String? = null
 )
@@ -97,4 +120,9 @@ interface ApiService {
     suspend fun getHistory(
         @Body request: ChatHistoryRequest
     ): Response<ChatHistoryResponse>
+
+    @POST("ai/chat.php")
+    suspend fun listConversations(
+        @Body request: ChatListConversationsRequest = ChatListConversationsRequest()
+    ): Response<ChatListConversationsResponse>
 }

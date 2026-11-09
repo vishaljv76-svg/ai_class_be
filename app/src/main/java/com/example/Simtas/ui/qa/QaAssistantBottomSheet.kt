@@ -1,5 +1,10 @@
 package com.example.Simtas.ui.qa
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -37,10 +41,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.example.Simtas.ui.detailednotes.DetailedNotesUiState
 import com.example.Simtas.ui.theme.PurplePrimary
 import com.example.Simtas.ui.theme.SplashBackground
@@ -49,8 +61,8 @@ import com.example.Simtas.ui.theme.TextMuted
 
 /**
  * Interactive SmartNotes AI Assistant Bottom Sheet.
- * Sends authenticated questions to the live Google Gemini backend (ai/chat.php)
- * with graceful, clearly labelled fallback to offline knowledge if network is unavailable.
+ * Supports ChatGPT-style voice questioning (Sherpa-ONNX Whisper on-device)
+ * and authenticated questions to the live Google Gemini backend (ai/chat.php).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,9 +77,46 @@ fun QaAssistantBottomSheet(
 ) {
     var queryText by remember { mutableStateOf("") }
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    // Runtime microphone permission launcher
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.startVoiceRecording(context)
+        }
+    }
+
+    val handleMicClick = {
+        if (uiState.isListening) {
+            viewModel.stopVoiceRecording(context) { recognizedText ->
+                val trimmed = recognizedText.trim()
+                if (trimmed.isNotBlank()) {
+                    queryText = if (queryText.isBlank()) trimmed else "$queryText $trimmed"
+                }
+            }
+        } else {
+            val hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (hasPermission) {
+                viewModel.startVoiceRecording(context)
+            } else {
+                micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+    }
 
     ModalBottomSheet(
-        onDismissRequest = onDismissRequest,
+        onDismissRequest = {
+            if (uiState.isListening) {
+                viewModel.cancelVoiceRecording()
+            }
+            onDismissRequest()
+        },
         sheetState = sheetState,
         containerColor = SplashBackground,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
@@ -118,9 +167,49 @@ fun QaAssistantBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Input Row
+            // Voice Status & Language Selector Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = when {
+                        uiState.isListening -> "Listening... Speak now (tap stop when done)"
+                        uiState.isTranscribingVoice -> "Transcribing speech (${uiState.voiceProgress}%)..."
+                        else -> "Tap mic to speak · Review & edit before sending"
+                    },
+                    fontSize = 11.sp,
+                    color = if (uiState.isListening) Color(0xFFDC2626) else TextMuted,
+                    fontWeight = if (uiState.isListening) FontWeight.Bold else FontWeight.Normal
+                )
+
+                // Language toggle pill: English <-> Tamil
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFFEDE9FE))
+                        .clickable {
+                            val newLang = if (uiState.selectedLanguageCode == "en") "ta" else "en"
+                            viewModel.setLanguage(newLang)
+                        }
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = if (uiState.selectedLanguageCode == "ta") "Tamil (தமிழ்)" else "English",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = PurplePrimary
+                    )
+                }
+            }
+
+            // Input Row (OutlinedTextField + Mic Button + Ask Button)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -130,13 +219,17 @@ fun QaAssistantBottomSheet(
                     onValueChange = { queryText = it },
                     placeholder = {
                         Text(
-                            text = "Ask Gemini anything (e.g., Explain BCNF...)",
+                            text = when {
+                                uiState.isListening -> "Listening to your voice..."
+                                uiState.isTranscribingVoice -> "Converting speech to text..."
+                                else -> "Ask Gemini or speak question..."
+                            },
                             fontSize = 13.sp,
                             color = TextMuted
                         )
                     },
                     singleLine = true,
-                    enabled = !uiState.isLoading,
+                    enabled = !uiState.isLoading && !uiState.isTranscribingVoice,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -147,12 +240,49 @@ fun QaAssistantBottomSheet(
                     )
                 )
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
 
+                // Microphone Button
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            when {
+                                uiState.isListening -> Color(0xFFDC2626) // Red when recording
+                                uiState.isTranscribingVoice -> Color(0xFFEDE9FE)
+                                else -> Color(0xFFF3E8FF) // Subtle purple when idle
+                            }
+                        )
+                        .clickable(enabled = !uiState.isLoading && !uiState.isTranscribingVoice) {
+                            handleMicClick()
+                        }
+                ) {
+                    if (uiState.isTranscribingVoice) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = PurplePrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Canvas(modifier = Modifier.size(20.dp)) {
+                            if (uiState.isListening) {
+                                drawSquareStopIcon(Color.White)
+                            } else {
+                                drawMicIcon(PurplePrimary)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Ask Button
                 Button(
                     onClick = {
                         val q = queryText.trim()
-                        if (q.isNotBlank() && !uiState.isLoading) {
+                        if (q.isNotBlank() && !uiState.isLoading && !uiState.isListening && !uiState.isTranscribingVoice) {
                             viewModel.askQuestion(
                                 question = q,
                                 subject = detailedNotes?.courseCode ?: "Database Systems",
@@ -165,7 +295,7 @@ fun QaAssistantBottomSheet(
                             queryText = ""
                         }
                     },
-                    enabled = !uiState.isLoading && queryText.isNotBlank(),
+                    enabled = !uiState.isLoading && !uiState.isListening && !uiState.isTranscribingVoice && queryText.isNotBlank(),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary)
                 ) {
@@ -295,12 +425,18 @@ fun QaAssistantBottomSheet(
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                Text(
-                                    text = item.text,
-                                    fontSize = 13.sp,
-                                    color = TextDarkPrimary,
-                                    lineHeight = 19.sp
-                                )
+                                if (item.sender == MessageSource.USER) {
+                                    Text(
+                                        text = item.text,
+                                        fontSize = 13.sp,
+                                        color = TextDarkPrimary,
+                                        lineHeight = 19.sp
+                                    )
+                                } else {
+                                    com.example.Simtas.ui.chat.MarkdownViewer(
+                                        content = item.text
+                                    )
+                                }
 
                                 if (item.explanation.isNotBlank()) {
                                     Spacer(modifier = Modifier.height(6.dp))
@@ -318,7 +454,7 @@ fun QaAssistantBottomSheet(
             } else {
                 // Empty state guidance
                 Text(
-                    text = "Tip: Ask academic questions about your lectures, formulas, or definitions. Gemini generates grounded study answers in real-time.",
+                    text = "Tip: Ask academic questions by typing or speaking in English or Tamil. Gemini generates grounded study answers in real-time.",
                     fontSize = 12.sp,
                     color = TextMuted,
                     modifier = Modifier.padding(top = 8.dp)
@@ -326,4 +462,49 @@ fun QaAssistantBottomSheet(
             }
         }
     }
+}
+
+// --- Custom Canvas Vector Graphics for Microphone ---
+
+private fun DrawScope.drawMicIcon(color: Color) {
+    val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(size.width * 0.35f, size.height * 0.15f),
+        size = Size(size.width * 0.3f, size.height * 0.42f),
+        cornerRadius = CornerRadius(size.width * 0.15f),
+        style = stroke
+    )
+    drawArc(
+        color = color,
+        startAngle = 0f,
+        sweepAngle = 180f,
+        useCenter = false,
+        topLeft = Offset(size.width * 0.22f, size.height * 0.28f),
+        size = Size(size.width * 0.56f, size.height * 0.38f),
+        style = stroke
+    )
+    drawLine(
+        color = color,
+        start = Offset(size.width * 0.5f, size.height * 0.66f),
+        end = Offset(size.width * 0.5f, size.height * 0.82f),
+        strokeWidth = 1.8.dp.toPx(),
+        cap = StrokeCap.Round
+    )
+    drawLine(
+        color = color,
+        start = Offset(size.width * 0.32f, size.height * 0.82f),
+        end = Offset(size.width * 0.68f, size.height * 0.82f),
+        strokeWidth = 1.8.dp.toPx(),
+        cap = StrokeCap.Round
+    )
+}
+
+private fun DrawScope.drawSquareStopIcon(color: Color) {
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(size.width * 0.28f, size.height * 0.28f),
+        size = Size(size.width * 0.44f, size.height * 0.44f),
+        cornerRadius = CornerRadius(2.dp.toPx())
+    )
 }

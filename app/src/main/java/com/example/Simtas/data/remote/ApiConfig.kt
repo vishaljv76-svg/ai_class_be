@@ -8,6 +8,7 @@
  * - Port 8080 on device forwards to Port 80 on PC: `adb reverse tcp:8080 tcp:80`
  * - Completely immune to Wi-Fi drops, 4G/5G mobile data, or lab firewall restrictions!
  *
+ *
  * Mode 2 (LAN Wi-Fi - If testing wirelessly on same Wi-Fi router):
  * - Change to "http://172.23.176.83/ai_class_be" (or current PC LAN IP)
  *

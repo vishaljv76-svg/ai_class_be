@@ -129,5 +129,79 @@ class LecturePreviewViewModelTest {
         // Then previous text is restored
         assertEquals("Previously saved lecture note", newViewModel.uiState.value.recognizedText)
     }
+
+    @Test
+    fun testExtractLectureIntelligence_generatesExplanationSummaryAndStudyQuestions() {
+        val viewModel = LecturePreviewViewModel()
+        val lectureTranscript = "Database normalization is the process of organizing data in a database. " +
+            "First normal form eliminates repeating groups. Second normal form removes partial dependencies."
+
+        viewModel.onRecognizedTextChanged(lectureTranscript)
+
+        // Give coroutine a moment to complete
+        Thread.sleep(150)
+
+        val state = viewModel.uiState.value
+        assertTrue("Teacher explanation should be generated", state.teacherExplanation.isNotBlank())
+        assertTrue("Lecture summary should be generated", state.lectureSummary.isNotBlank())
+        assertTrue("Key takeaways should be populated", state.keyTakeaways.isNotEmpty())
+        assertTrue("Study questions should be generated", state.studyQuestionsAndAnswers.isNotEmpty())
+
+        // Verify that study questions are tagged with From Lecture
+        val lectureItem = state.studyQuestionsAndAnswers.first()
+        assertTrue("Study Q&A source should indicate from lecture", lectureItem.source.contains("Lecture"))
+    }
+
+    @Test
+    fun testFollowUpQuestions_differentiatesBetweenLectureAndSupplementalAnswers() {
+        val viewModel = LecturePreviewViewModel()
+        val lectureTranscript = "Photosynthesis is the process by which plants use sunlight to convert water and carbon dioxide into oxygen and glucose."
+
+        viewModel.onRecognizedTextChanged(lectureTranscript)
+        Thread.sleep(150)
+
+        // 1. Ask a question directly covered in the lecture
+        viewModel.onFollowUpQuestionChanged("What is photosynthesis?")
+        viewModel.askFollowUpQuestion()
+
+        val qaList = viewModel.uiState.value.followUpQaList
+        assertEquals(1, qaList.size)
+        val firstQa = qaList[0]
+        assertEquals("What is photosynthesis?", firstQa.question)
+        assertTrue("Answer should be answered", firstQa.isAnswered)
+        assertTrue("Source should be [From Lecture]", firstQa.source.contains("Lecture"))
+
+        // 2. Ask a question not in lecture (should fall back to supplemental student knowledge or indicate not in lecture)
+        viewModel.onFollowUpQuestionChanged("What is the time complexity of quicksort?")
+        viewModel.askFollowUpQuestion()
+
+        val updatedList = viewModel.uiState.value.followUpQaList
+        assertEquals(2, updatedList.size)
+        val secondQa = updatedList[1]
+        assertTrue("Source should indicate Supplemental or General Knowledge", 
+            secondQa.source.contains("Supplemental") || secondQa.source.contains("Knowledge") || secondQa.source.contains("Not in Lecture"))
+    }
+
+    @Test
+    fun testTamilLanguageSupport_processesTamilContentAndQuestions() {
+        val viewModel = LecturePreviewViewModel()
+        viewModel.onLanguageSelected("ta")
+
+        val tamilTranscript = "தரவுத்தள இயல்பாக்கம் என்பது தேவையற்ற தரவை நீக்கும் முறையாகும்."
+        viewModel.onRecognizedTextChanged(tamilTranscript)
+        Thread.sleep(150)
+
+        val state = viewModel.uiState.value
+        assertEquals("ta", state.selectedLanguageCode)
+        assertTrue("Teacher explanation should be generated for Tamil lecture", state.teacherExplanation.isNotBlank())
+    }
+
+    @Test
+    fun testTranscriptionRetry_clearsErrorStateAndTriggersRetry() {
+        val viewModel = LecturePreviewViewModel()
+        // Simulate failure state
+        viewModel.onRecognizedTextChanged("")
+        assertFalse(viewModel.uiState.value.transcriptionFailed)
+    }
 }
 

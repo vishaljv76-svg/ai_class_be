@@ -24,10 +24,12 @@ class RecordLectureViewModelTest {
         assertNull(state.errorMessage)
         assertNull(state.recordedFilePath)
         assertEquals(0L, state.fileSizeBytes)
+        assertFalse(state.isPermissionDenied)
+        assertEquals(20, state.audioAmplitudes.size)
     }
 
     @Test
-    fun permissionDenied_setsMeaningfulErrorMessage() {
+    fun permissionDenied_setsMeaningfulErrorMessageAndFlag() {
         val viewModel = RecordLectureViewModel()
         viewModel.onPermissionDenied()
 
@@ -35,6 +37,7 @@ class RecordLectureViewModelTest {
         assertEquals(RecordingStatus.IDLE, state.status)
         assertNotNull(state.errorMessage)
         assertTrue(state.errorMessage!!.contains("Microphone permission is required"))
+        assertTrue(state.isPermissionDenied)
     }
 
     @Test
@@ -55,6 +58,7 @@ class RecordLectureViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(RecordingStatus.IDLE, state.status)
         assertNotNull(state.errorMessage)
+        assertTrue(state.errorMessage!!.contains("too short or empty"))
     }
 
     @Test
@@ -82,5 +86,40 @@ class RecordLectureViewModelTest {
         )
         assertTrue(stoppedValidState.status == RecordingStatus.STOPPED && stoppedValidState.recordedFilePath != null && stoppedValidState.fileSizeBytes > 0L)
     }
-}
 
+    @Test
+    fun setLanguage_updatesSelectedLanguageCodeAndSessionManager() {
+        val viewModel = RecordLectureViewModel()
+
+        // Set to Tamil
+        viewModel.setLanguage("ta")
+        assertEquals("ta", viewModel.uiState.value.selectedLanguageCode)
+        assertEquals("ta", SessionManager.getSelectedLanguage())
+
+        // Set back to English
+        viewModel.setLanguage("en")
+        assertEquals("en", viewModel.uiState.value.selectedLanguageCode)
+        assertEquals("en", SessionManager.getSelectedLanguage())
+    }
+
+    @Test
+    fun updateLectureTitleAndCourseCode_modifiesUiState() {
+        val viewModel = RecordLectureViewModel()
+
+        viewModel.updateLectureTitle("Operating Systems & Deadlocks")
+        assertEquals("Operating Systems & Deadlocks", viewModel.uiState.value.lectureTitle)
+
+        viewModel.updateCourseCode("CS304")
+        assertEquals("CS304", viewModel.uiState.value.courseCode)
+    }
+
+    @Test
+    fun amplitudesList_hasStandardTwentyBars() {
+        val viewModel = RecordLectureViewModel()
+        val amplitudes = viewModel.uiState.value.audioAmplitudes
+        assertEquals(20, amplitudes.size)
+        amplitudes.forEach { amp ->
+            assertTrue(amp in 0.05f..1.0f)
+        }
+    }
+}

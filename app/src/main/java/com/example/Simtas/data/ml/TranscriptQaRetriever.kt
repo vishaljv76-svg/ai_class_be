@@ -78,7 +78,8 @@ object TranscriptQaRetriever {
                     answer = sentence,
                     explanation = "Extracted directly from the lecture transcript.",
                     status = "Answered from Transcript",
-                    isAnswered = true
+                    isAnswered = true,
+                    source = "[From Lecture]"
                 )
             }
 
@@ -121,7 +122,8 @@ object TranscriptQaRetriever {
                 answer = bestSentence,
                 explanation = "Extracted directly from the lecture transcript.",
                 status = "Answered from Transcript",
-                isAnswered = true
+                isAnswered = true,
+                source = "[From Lecture]"
             )
         }
 

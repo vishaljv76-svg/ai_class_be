@@ -19,6 +19,14 @@ import java.util.Locale
  */
 object QuestionAnsweringEngine {
 
+    private val STOP_WORDS = setOf(
+        "a", "an", "the", "and", "or", "but", "if", "in", "on", "at", "to", "for", "with",
+        "of", "by", "from", "up", "about", "into", "through", "after", "is", "are", "was",
+        "were", "be", "been", "being", "have", "has", "had", "do", "does", "did", "this",
+        "that", "these", "those", "what", "which", "who", "whom", "whose", "why", "how",
+        "some", "any", "all", "each", "every", "both", "few", "more", "most", "other"
+    )
+
     /**
      * Answers a detected question using the strict 4-tier lecture context search order.
      *
@@ -89,19 +97,19 @@ object QuestionAnsweringEngine {
         // 4a. Programming Assistant (Code Generation, Syntax & Error Debugging)
         val programmingAnswer = ProgrammingAssistantEngine.answer(effectiveLectureQ)
         if (programmingAnswer != null) {
-            return programmingAnswer
+            return programmingAnswer.copy(source = "[Supplemental AI Explanation]")
         }
 
         // 4b. Universal Student Knowledge Base (Computer Science, Physics, Chemistry, Biology)
         val universalAnswer = UniversalStudentKnowledgeBase.findKnowledge(effectiveLectureQ)
         if (universalAnswer != null) {
-            return universalAnswer
+            return universalAnswer.copy(source = "[Supplemental AI Explanation]")
         }
 
         // 4c. Existing Offline Knowledge & Comparative Reasoning Engine
         val generalAnswer = OfflineReasoningEvaluator.evaluate(effectiveLectureQ)
         if (generalAnswer != null) {
-            return generalAnswer
+            return generalAnswer.copy(source = "[Supplemental AI Explanation]")
         }
 
         // --- Priority 5: Honest Absentee Indication for Unsupported Questions ---
@@ -110,7 +118,8 @@ object QuestionAnsweringEngine {
             answer = "This question was not covered in the current lecture content.",
             explanation = "No matching explanation was found in the lecture recording or available offline knowledge.",
             status = "Not in lecture",
-            isAnswered = false
+            isAnswered = false,
+            source = "[Not in Lecture]"
         )
     }
 
@@ -199,7 +208,7 @@ object QuestionAnsweringEngine {
     ): DetectedQuestionAnswerItem? {
         val cleanLower = cleanQuery(question)
         if (cleanLower.isBlank()) return null
-        val queryWords = cleanLower.split(" ").filter { it.isNotBlank() && it.length >= 2 }
+        val queryWords = cleanLower.split("\\s+".toRegex()).filter { it.isNotBlank() && it.length >= 2 && it !in STOP_WORDS }
         if (queryWords.isEmpty()) return null
 
         // 1. Check Section 2 Topic-Wise Bullets (Highest priority in study notes)
@@ -306,7 +315,7 @@ object QuestionAnsweringEngine {
     ): DetectedQuestionAnswerItem? {
         val cleanLower = cleanQuery(question)
         if (cleanLower.isBlank()) return null
-        val queryWords = cleanLower.split(" ").filter { it.isNotBlank() && it.length >= 2 }
+        val queryWords = cleanLower.split("\\s+".toRegex()).filter { it.isNotBlank() && it.length >= 2 && it !in STOP_WORDS }
         if (queryWords.isEmpty()) return null
 
         // 1. Search key takeaways

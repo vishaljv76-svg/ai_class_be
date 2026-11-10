@@ -11,6 +11,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.Simtas.data.remote.SessionManager
 import com.example.Simtas.data.repository.AudioRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,11 +24,13 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.sin
 
 /**
  * ViewModel for [RecordLectureScreen] adhering to MVVM architecture.
  * Manages audio recording lifecycle with MediaRecorder, permission validation,
- * private storage file handling, and background upload.
+ * dynamic live amplitude waveform monitoring, multilingual (English & Tamil)
+ * audio capture, safe interruption recovery, and session persistence.
  */
 class RecordLectureViewModel : ViewModel() {
 
@@ -37,12 +40,48 @@ class RecordLectureViewModel : ViewModel() {
     private var mediaRecorder: MediaRecorder? = null
     private var currentOutputFile: File? = null
     private var timerJob: Job? = null
+    private var amplitudeJob: Job? = null
     private var elapsedSeconds: Long = 0L
     private val recorderLock = Any()
 
     @Volatile
     private var isRecordingSessionActive: Boolean = false
 
+    init {
+        // Initialize language from SessionManager if previously selected
+        val sessionLang = SessionManager.getSelectedLanguage()
+        if (sessionLang.isNotBlank()) {
+            _uiState.update { it.copy(selectedLanguageCode = sessionLang) }
+        }
+    }
+
+    /**
+     * Updates lecture title for customized notes and file naming.
+     */
+    fun updateLectureTitle(title: String) {
+        _uiState.update { it.copy(lectureTitle = title.trim()) }
+    }
+
+    /**
+     * Updates course code for customized notes and file naming.
+     */
+    fun updateCourseCode(code: String) {
+        _uiState.update { it.copy(courseCode = code.trim()) }
+    }
+
+    /**
+     * Sets preferred recording language ("en" for English, "ta" for Tamil).
+     */
+    fun setLanguage(languageCode: String) {
+        val code = if (languageCode == "ta") "ta" else "en"
+        SessionManager.setSelectedLanguage(code)
+        _uiState.update { it.copy(selectedLanguageCode = code) }
+    }
+
+    /**
+     * Starts audio recording with safe directory creation, unique file naming,
+     * permission validation, and real-time audio amplitude metering.
+     */
     fun startRecording(context: Context) {
         synchronized(recorderLock) {
             if (isRecordingSessionActive || mediaRecorder != null) {
@@ -66,9 +105,22 @@ class RecordLectureViewModel : ViewModel() {
                     recordingsDir.mkdirs()
                 }
 
-                // 2. Generate unique filename with timestamp
+                // 2. Generate meaningful filename with course, title, language, and timestamp
+                val cleanSubject = _uiState.value.courseCode
+                    .replace(Regex("[^a-zA-Z0-9]"), "_")
+                    .trim('_')
+                    .take(12)
+                    .ifBlank { "Lecture" }
+
+                val cleanTitle = _uiState.value.lectureTitle
+                    .replace(Regex("[^a-zA-Z0-9]"), "_")
+                    .trim('_')
+                    .take(24)
+                    .ifBlank { "Audio" }
+
+                val langSuffix = if (_uiState.value.selectedLanguageCode == "ta") "_ta" else "_en"
                 val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-                val outputFile = File(recordingsDir, "lecture_rec_${timestamp}.m4a")
+                val outputFile = File(recordingsDir, "lecture_${cleanSubject}_${cleanTitle}${langSuffix}_${timestamp}.m4a")
                 currentOutputFile = outputFile
 
                 // 3. Initialize MediaRecorder API
@@ -102,13 +154,16 @@ class RecordLectureViewModel : ViewModel() {
                         timerText = "00:00",
                         elapsedSeconds = 0L,
                         errorMessage = null,
+                        isPermissionDenied = false,
                         recordedFilePath = null,
                         fileSizeBytes = 0L,
-                        formattedFileSize = ""
+                        formattedFileSize = "",
+                        audioLevelCategory = "Listening..."
                     )
                 }
 
                 startTimer()
+                startAmplitudeTracking()
 
             } catch (e: Exception) {
                 releaseRecorderInternal()
@@ -141,17 +196,68 @@ class RecordLectureViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Polls actual microphone amplitude levels for dynamic live audio waveform visualization.
+     */
+    private fun startAmplitudeTracking() {
+        amplitudeJob?.cancel()
+        amplitudeJob = viewModelScope.launch(Dispatchers.Default) {
+            while (isActive) {
+                delay(80L)
+                if (_uiState.value.status == RecordingStatus.RECORDING) {
+                    val rawAmp = try {
+                        mediaRecorder?.maxAmplitude ?: 0
+                    } catch (_: Exception) {
+                        0
+                    }
+
+                    // Normalize between 0.08f (subtle baseline) and 1.0f (peak)
+                    val normalized = if (rawAmp > 0) {
+                        (rawAmp / 28000f).coerceIn(0.08f, 1.0f)
+                    } else {
+                        // Gentle natural idle wave when quiet
+                        val wave = 0.08f + (sin(System.currentTimeMillis() / 250.0).toFloat() * 0.04f).coerceAtLeast(0f)
+                        wave.coerceIn(0.08f, 0.20f)
+                    }
+
+                    val currentList = _uiState.value.audioAmplitudes
+                    val updatedList = if (currentList.size >= 20) {
+                        currentList.drop(1) + normalized
+                    } else {
+                        currentList + normalized
+                    }
+
+                    val category = when {
+                        normalized > 0.65f -> "Strong Signal"
+                        normalized > 0.25f -> "Good Signal"
+                        else -> "Capturing..."
+                    }
+
+                    _uiState.update {
+                        it.copy(
+                            audioAmplitudes = updatedList,
+                            audioLevelNormalized = normalized,
+                            audioLevelCategory = category
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     fun onPauseClicked() {
         synchronized(recorderLock) {
             val recorder = mediaRecorder
             if (recorder != null && _uiState.value.status == RecordingStatus.RECORDING) {
                 try {
                     recorder.pause()
+                    amplitudeJob?.cancel()
                     _uiState.update {
                         it.copy(
                             status = RecordingStatus.PAUSED,
                             statusText = "Recording paused",
-                            micConnectedText = "Microphone paused · Tap Resume to continue"
+                            micConnectedText = "Microphone paused · Tap Resume to continue",
+                            audioLevelCategory = "Paused"
                         )
                     }
                 } catch (e: Exception) {
@@ -169,11 +275,13 @@ class RecordLectureViewModel : ViewModel() {
             if (recorder != null && _uiState.value.status == RecordingStatus.PAUSED) {
                 try {
                     recorder.resume()
+                    startAmplitudeTracking()
                     _uiState.update {
                         it.copy(
                             status = RecordingStatus.RECORDING,
                             statusText = "Recording in progress",
-                            micConnectedText = "Capturing clearly · Microphone connected"
+                            micConnectedText = "Capturing clearly · Microphone connected",
+                            audioLevelCategory = "Capturing..."
                         )
                     }
                 } catch (e: Exception) {
@@ -189,12 +297,14 @@ class RecordLectureViewModel : ViewModel() {
         synchronized(recorderLock) {
             timerJob?.cancel()
             timerJob = null
+            amplitudeJob?.cancel()
+            amplitudeJob = null
 
             val recorder = mediaRecorder
             if (recorder != null) {
                 try {
                     recorder.stop()
-                } catch (e: RuntimeException) {
+                } catch (_: RuntimeException) {
                     // Thrown if stop is called immediately without captured data
                 }
                 try {
@@ -207,14 +317,15 @@ class RecordLectureViewModel : ViewModel() {
 
             // Verify file exists and has non-zero size
             val file = currentOutputFile
-            if (file != null && file.exists() && file.length() > 0L) {
+            if (file != null && file.exists() && file.length() >= 1024L && elapsedSeconds >= 1L) {
                 val sizeBytes = file.length()
                 val formattedSize = formatBytes(sizeBytes)
                 val durationText = _uiState.value.timerText
                 val title = _uiState.value.lectureTitle.ifBlank { "Database Normalization" }
 
-                // Save audio reference in SessionManager
+                // Save audio reference and selected language in SessionManager
                 SessionManager.setLastRecordedAudioPath(file.absolutePath)
+                SessionManager.setSelectedLanguage(_uiState.value.selectedLanguageCode)
                 SessionManager.setLastUploadedAudio(
                     audioId = SessionManager.getLastUploadedAudioId() ?: 0,
                     title = title,
@@ -225,11 +336,13 @@ class RecordLectureViewModel : ViewModel() {
                     it.copy(
                         status = RecordingStatus.STOPPED,
                         statusText = "Recording saved ($formattedSize)",
-                        micConnectedText = "Audio saved locally · Tap Next to proceed",
+                        micConnectedText = "Audio saved locally · Tap 'Next' to transcribe & generate AI notes",
                         recordedFilePath = file.absolutePath,
                         fileSizeBytes = sizeBytes,
                         formattedFileSize = formattedSize,
-                        errorMessage = null
+                        errorMessage = null,
+                        audioLevelCategory = "Saved",
+                        audioAmplitudes = List(20) { 0.35f } // Clean static waveform on completion
                     )
                 }
 
@@ -238,13 +351,21 @@ class RecordLectureViewModel : ViewModel() {
                     uploadRecordedAudio(context, file, title, durationText)
                 }
             } else {
+                // Clean up empty / corrupt file
+                try {
+                    file?.delete()
+                } catch (_: Exception) {}
+                currentOutputFile = null
+
                 _uiState.update {
                     it.copy(
                         status = RecordingStatus.IDLE,
-                        statusText = "Recording cancelled or empty",
-                        errorMessage = "Recording was too short or empty. Please record again.",
+                        statusText = "Recording cancelled",
+                        errorMessage = "Recording was too short or empty. Please speak into the microphone and record again.",
                         recordedFilePath = null,
-                        fileSizeBytes = 0L
+                        fileSizeBytes = 0L,
+                        audioAmplitudes = List(20) { 0.15f },
+                        audioLevelCategory = "Ready"
                     )
                 }
             }
@@ -287,24 +408,44 @@ class RecordLectureViewModel : ViewModel() {
     fun onPermissionDenied() {
         _uiState.update {
             it.copy(
-                errorMessage = "Microphone permission is required to record lectures. Please allow microphone access in settings."
+                isPermissionDenied = true,
+                errorMessage = "Microphone permission is required to record lectures. Please tap 'Grant Permission' below or enable microphone access in Android settings."
             )
         }
+    }
+
+    fun onPermissionGranted(context: Context) {
+        _uiState.update {
+            it.copy(
+                isPermissionDenied = false,
+                errorMessage = null
+            )
+        }
+        startRecording(context)
     }
 
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
     }
 
-    fun onScreenDisposed() {
+    /**
+     * Safely handles screen disposal or lifecycle backgrounding.
+     * If user leaves the screen while recording has captured meaningful audio (>2s),
+     * the audio is safely saved so lecture data is not lost.
+     */
+    fun onScreenDisposed(context: Context? = null) {
         synchronized(recorderLock) {
             if (isRecordingSessionActive) {
-                releaseRecorderInternal()
-                _uiState.update {
-                    it.copy(
-                        status = RecordingStatus.IDLE,
-                        statusText = "Recording stopped"
-                    )
+                if (elapsedSeconds >= 2L && currentOutputFile != null) {
+                    onStopClicked(context)
+                } else {
+                    releaseRecorderInternal()
+                    _uiState.update {
+                        it.copy(
+                            status = RecordingStatus.IDLE,
+                            statusText = "Recording stopped"
+                        )
+                    }
                 }
             }
         }
@@ -313,6 +454,8 @@ class RecordLectureViewModel : ViewModel() {
     private fun releaseRecorderInternal() {
         timerJob?.cancel()
         timerJob = null
+        amplitudeJob?.cancel()
+        amplitudeJob = null
         try {
             mediaRecorder?.apply {
                 try {

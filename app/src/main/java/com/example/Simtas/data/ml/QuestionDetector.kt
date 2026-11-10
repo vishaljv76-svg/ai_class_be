@@ -36,7 +36,8 @@ object QuestionDetector {
         "hi", "hello", "hey", "howdy", "greetings",
         "good morning", "good afternoon", "good evening", "good day",
         "how are you", "how are you doing", "hows it going", "how's it going",
-        "how are things", "how do you do"
+        "how are things", "how do you do",
+        "வணக்கம்", "வணக்கம் எப்படி இருக்கிறீர்கள்", "நலமா"
     )
 
     // Identity inquiry patterns ("Who are you?", "What are you?", "Hi, what are you?")
@@ -44,13 +45,14 @@ object QuestionDetector {
         "who are you", "what are you", "who r u", "what r u",
         "tell me who you are", "tell me what you are",
         "what is your name", "who made you", "who created you",
-        "introduce yourself"
+        "introduce yourself", "நீங்கள் யார்", "உன் பெயர் என்ன"
     )
 
     // General assistant capability inquiry patterns
     private val CAPABILITY_PATTERNS = listOf(
         "what can you do", "what do you do", "how can you help",
-        "how do you work", "help me", "what is your purpose", "how to use"
+        "how do you work", "help me", "what is your purpose", "how to use",
+        "உங்களால் என்ன செய்ய முடியும்"
     )
 
     // Directive prefixes that command an answer or explanation
@@ -59,12 +61,14 @@ object QuestionDetector {
         "compare", "calculate", "evaluate", "solve", "compute", "summarize",
         "tell me about", "tell me what is", "tell me how", "can you explain",
         "could you explain", "please explain", "can you tell me",
-        "name", "list", "give", "mention", "state", "identify", "provide"
+        "name", "list", "give", "mention", "state", "identify", "provide",
+        "விளக்குக", "விளக்கு", "வரையறு", "கூறுக", "பட்டியலிடுக"
     )
 
     // Standard interrogative question words
     private val QUESTION_WORDS = listOf(
-        "what", "why", "how", "when", "where", "who", "whom", "which"
+        "what", "why", "how", "when", "where", "who", "whom", "which",
+        "என்ன", "எப்படி", "ஏன்", "எங்கே", "யார்", "எவை"
     )
 
     // Inversion auxiliary verbs that begin inquiry questions
@@ -291,6 +295,11 @@ object QuestionDetector {
         val firstWord = words.firstOrNull() ?: ""
 
         if (firstWord in QUESTION_WORDS) {
+            return true
+        }
+
+        // Tamil question phrases and markers (e.g. "என்றால் என்ன", "என்பது என்ன", "விளக்குக")
+        if (lower.contains("என்றால் என்ன") || lower.contains("என்பது என்ன") || lower.contains("விளக்குக") || lower.contains("வரையறு")) {
             return true
         }
 

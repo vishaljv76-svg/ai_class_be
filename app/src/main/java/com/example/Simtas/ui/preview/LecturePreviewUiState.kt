@@ -1,9 +1,13 @@
 package com.example.Simtas.ui.preview
 
+import com.example.Simtas.ui.notes.DetectedQuestionAnswerItem
+
 /**
  * UI State for Lecture Preview Screen following MVVM architecture.
  * Holds audio playback state, resolved file metadata, lecture details,
- * and real-time voice-to-text / manual text editing states.
+ * real-time voice-to-text / manual text editing states, and Phase 6A
+ * lecture intelligence: Teacher's explanation, Key Takeaways, Definitions,
+ * Summary, Automatically generated Study Questions, and Follow-Up Q&A.
  */
 data class LecturePreviewUiState(
     val subjectBadge: String = "Computer Science",
@@ -37,6 +41,18 @@ data class LecturePreviewUiState(
     ),
     val isSaved: Boolean = false,
     // Automatic Question Answering additions
-    val detectedQuestionsAndAnswers: List<com.example.Simtas.ui.notes.DetectedQuestionAnswerItem> = emptyList(),
-    val isAnsweringQuestion: Boolean = false
+    val detectedQuestionsAndAnswers: List<DetectedQuestionAnswerItem> = emptyList(),
+    val isAnsweringQuestion: Boolean = false,
+
+    // Phase 6A: Lecture Understanding & Intelligence additions
+    val teacherExplanation: String = "",
+    val lectureSummary: String = "",
+    val keyTakeaways: List<String> = emptyList(),
+    val importantDefinitions: List<Pair<String, String>> = emptyList(),
+    val studyQuestionsAndAnswers: List<DetectedQuestionAnswerItem> = emptyList(),
+    val followUpQuestionText: String = "",
+    val followUpQaList: List<DetectedQuestionAnswerItem> = emptyList(),
+    val isAnalyzingIntelligence: Boolean = false,
+    val transcriptionFailed: Boolean = false,
+    val canRetryTranscription: Boolean = false
 )

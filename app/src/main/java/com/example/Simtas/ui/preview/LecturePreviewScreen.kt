@@ -146,6 +146,9 @@ fun LecturePreviewScreen(
         onClearTextClick = viewModel::onClearTextClicked,
         onLanguageSelect = viewModel::onLanguageSelected,
         onTranscribeAudioClick = { viewModel.transcribeLoadedAudio(context) },
+        onFollowUpQuestionChange = viewModel::onFollowUpQuestionChanged,
+        onAskFollowUpQuestion = viewModel::askFollowUpQuestion,
+        onRetryTranscriptionClick = { viewModel.retryTranscription(context) },
         onGenerateTranscriptClick = {
             if (viewModel.onGenerateTranscriptClicked()) {
                 onGenerateTranscriptClick()
@@ -171,6 +174,9 @@ fun LecturePreviewScreenContent(
     onClearTextClick: () -> Unit = {},
     onLanguageSelect: (String) -> Unit = {},
     onTranscribeAudioClick: () -> Unit = {},
+    onFollowUpQuestionChange: (String) -> Unit = {},
+    onAskFollowUpQuestion: () -> Unit = {},
+    onRetryTranscriptionClick: () -> Unit = {},
     onGenerateTranscriptClick: () -> Unit = {}
 ) {
     Surface(
@@ -280,6 +286,99 @@ fun LecturePreviewScreenContent(
                     onLanguageSelect = onLanguageSelect,
                     onTranscribeAudioClick = onTranscribeAudioClick
                 )
+
+                // Transcription Retry Banner
+                if (uiState.transcriptionFailed || uiState.canRetryTranscription) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    TranscriptionRetryCard(
+                        onRetryClick = onRetryTranscriptionClick,
+                        isTamil = uiState.selectedLanguageCode == "ta"
+                    )
+                }
+
+                // AI Intelligence Analyzing Indicator
+                if (uiState.isAnalyzingIntelligence) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.White)
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = PurplePrimary,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = if (uiState.selectedLanguageCode == "ta") {
+                                    "ஸ்மார்ட்நோட்ஸ் AI பாடக் குறிப்புகளை ஆய்வு செய்கிறது..."
+                                } else {
+                                    "SmartNotes AI is analyzing what the teacher taught..."
+                                },
+                                fontSize = 13.sp,
+                                color = TextDarkPrimary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                // 1. Teacher's Explanation Card
+                if (uiState.teacherExplanation.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(18.dp))
+                    TeacherExplanationCard(
+                        explanation = uiState.teacherExplanation,
+                        isTamil = uiState.selectedLanguageCode == "ta"
+                    )
+                }
+
+                // 2. Key Topics & Definitions Card
+                if (uiState.importantDefinitions.isNotEmpty() || uiState.keyTakeaways.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(18.dp))
+                    KeyTopicsAndDefinitionsCard(
+                        definitions = uiState.importantDefinitions,
+                        takeaways = uiState.keyTakeaways,
+                        isTamil = uiState.selectedLanguageCode == "ta"
+                    )
+                }
+
+                // 3. Lecture Summary Card
+                if (uiState.lectureSummary.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(18.dp))
+                    LectureSummaryCard(
+                        summary = uiState.lectureSummary,
+                        isTamil = uiState.selectedLanguageCode == "ta"
+                    )
+                }
+
+                // 4. Study & Revision Questions Card
+                if (uiState.studyQuestionsAndAnswers.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(18.dp))
+                    StudyQuestionsCard(
+                        questions = uiState.studyQuestionsAndAnswers,
+                        isTamil = uiState.selectedLanguageCode == "ta"
+                    )
+                }
+
+                // 5. Ask Follow-Up Question Card
+                if (uiState.recognizedText.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(18.dp))
+                    AskFollowUpQuestionCard(
+                        questionText = uiState.followUpQuestionText,
+                        onQuestionChange = onFollowUpQuestionChange,
+                        onAskClick = onAskFollowUpQuestion,
+                        qaList = uiState.followUpQaList,
+                        isTamil = uiState.selectedLanguageCode == "ta"
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -676,10 +775,14 @@ private fun VoiceAndTextInputCard(
 }
 
 /**
- * Related Answer Card for Detected Questions on Screen 2
+ * Related Answer Card for Detected Questions on Screen 2 with explicit Source & Status badges.
  */
 @Composable
 private fun RelatedAnswerItemCard(item: com.example.Simtas.ui.notes.DetectedQuestionAnswerItem) {
+    val isFromLecture = item.source.contains("Lecture", ignoreCase = true)
+    val isSupplemental = item.source.contains("Supplemental", ignoreCase = true)
+    val isCalculated = item.source.contains("Calculated", ignoreCase = true)
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -703,18 +806,50 @@ private fun RelatedAnswerItemCard(item: com.example.Simtas.ui.notes.DetectedQues
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(if (item.isAnswered) InnerCircleBg else Color(0xFFFEE2E2))
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Text(
-                        text = item.status,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (item.isAnswered) PurplePrimary else Color(0xFFDC2626)
-                    )
+                    val sourceBg = when {
+                        isFromLecture -> Color(0xFFEEF2FF)
+                        isCalculated -> Color(0xFFE0F2FE)
+                        isSupplemental -> Color(0xFFFEF3C7)
+                        else -> InnerCircleBg
+                    }
+                    val sourceColor = when {
+                        isFromLecture -> Color(0xFF4338CA)
+                        isCalculated -> Color(0xFF0284C7)
+                        isSupplemental -> Color(0xFFB45309)
+                        else -> PurplePrimary
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(sourceBg)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = item.source,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = sourceColor
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(if (item.isAnswered) InnerCircleBg else Color(0xFFFEE2E2))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = item.status,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (item.isAnswered) PurplePrimary else Color(0xFFDC2626)
+                        )
+                    }
                 }
             }
 
@@ -724,7 +859,7 @@ private fun RelatedAnswerItemCard(item: com.example.Simtas.ui.notes.DetectedQues
                 text = item.answer,
                 fontSize = if (item.answer.length <= 4) 20.sp else 13.sp,
                 fontWeight = if (item.answer.length <= 4) FontWeight.Bold else FontWeight.Normal,
-                color = if (item.isAnswered) PurplePrimary else TextMuted,
+                color = if (item.isAnswered) (if (isFromLecture) PurplePrimary else TextDarkPrimary) else TextMuted,
                 lineHeight = 18.sp
             )
 
@@ -736,6 +871,454 @@ private fun RelatedAnswerItemCard(item: com.example.Simtas.ui.notes.DetectedQues
                     color = TextMuted,
                     lineHeight = 16.sp
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TranscriptionRetryCard(
+    onRetryClick: () -> Unit,
+    isTamil: Boolean
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFFFEF2F2))
+            .padding(16.dp)
+    ) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFEF4444)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "!",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = if (isTamil) "உரையாடல் அங்கீகரிக்கப்படவில்லை" else "Speech Not Detected in Audio",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF991B1B)
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = if (isTamil) {
+                    "பதிவில் தெளிவான பேச்சு கண்டறியப்படவில்லை. மைக் அருகே பேசுங்கள் அல்லது ஆஃப்லைன் விஸ்பர் மூலம் மீண்டும் முயற்சிக்கவும்."
+                } else {
+                    "No clear spoken words were detected in the recorded audio. Tap below to retry transcription with offline Whisper, check audio level, or type notes manually."
+                },
+                fontSize = 12.sp,
+                color = Color(0xFF7F1D1D),
+                lineHeight = 16.sp
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = onRetryClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+            ) {
+                Text(
+                    text = if (isTamil) "மீண்டும் படியெடுக்க (Retry Transcription)" else "Retry Transcription with Offline Whisper",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TeacherExplanationCard(
+    explanation: String,
+    isTamil: Boolean
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color.White)
+            .padding(18.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(PurplePrimary),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.size(13.dp)) {
+                    drawSparkleStarIcon(Color.White)
+                }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (isTamil) "ஆசிரியர் கற்பிக்கும் விளக்கம்" else "What the Teacher is Teaching",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextDarkPrimary
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = if (isTamil) "பதிவு செய்யப்பட்ட உரையிலிருந்து நேரடியாக தொகுக்கப்பட்டது" else "Synthesized directly from recorded lecture speech",
+            fontSize = 11.sp,
+            color = TextMuted
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = explanation,
+            fontSize = 13.sp,
+            color = TextDarkPrimary,
+            lineHeight = 20.sp
+        )
+    }
+}
+
+@Composable
+private fun KeyTopicsAndDefinitionsCard(
+    definitions: List<Pair<String, String>>,
+    takeaways: List<String>,
+    isTamil: Boolean
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color.White)
+            .padding(18.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF3B82F6)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "✦",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (isTamil) "முக்கிய தலைப்புகள் மற்றும் வரையறைகள்" else "Key Concepts & Definitions",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextDarkPrimary
+            )
+        }
+
+        if (definitions.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            definitions.forEach { (term, def) ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(PlayerCardBg)
+                        .padding(12.dp)
+                ) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(PurplePrimary)
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = term,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = def,
+                            fontSize = 12.sp,
+                            color = TextDarkPrimary,
+                            lineHeight = 17.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        if (takeaways.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = if (isTamil) "முக்கிய குறிப்புகள்:" else "Core Takeaways:",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextDarkPrimary
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            takeaways.forEach { takeaway ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 3.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Text(
+                        text = "•",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PurplePrimary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = takeaway,
+                        fontSize = 12.sp,
+                        color = TextDarkPrimary,
+                        lineHeight = 17.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LectureSummaryCard(
+    summary: String,
+    isTamil: Boolean
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color.White)
+            .padding(18.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF10B981)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "≡",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (isTamil) "பாட சுருக்கம் (Lecture Summary)" else "Lecture Summary",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextDarkPrimary
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = summary,
+            fontSize = 13.sp,
+            color = TextDarkPrimary,
+            lineHeight = 19.sp
+        )
+    }
+}
+
+@Composable
+private fun StudyQuestionsCard(
+    questions: List<com.example.Simtas.ui.notes.DetectedQuestionAnswerItem>,
+    isTamil: Boolean
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(PlayerCardBg)
+            .padding(18.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(PurplePrimary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "?",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isTamil) "பயிற்சி மற்றும் திருத்தக் கேள்விகள்" else "Study & Revision Questions",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextDarkPrimary
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(InnerCircleBg)
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = "${questions.size} Q&As",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PurplePrimary
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = if (isTamil) "பாடப் பதிவின் அடிப்படையில் தயாரிக்கப்பட்டது" else "Generated strictly from teacher's lecture recording",
+            fontSize = 11.sp,
+            color = TextMuted
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            questions.forEach { item ->
+                RelatedAnswerItemCard(item = item)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AskFollowUpQuestionCard(
+    questionText: String,
+    onQuestionChange: (String) -> Unit,
+    onAskClick: () -> Unit,
+    qaList: List<com.example.Simtas.ui.notes.DetectedQuestionAnswerItem>,
+    isTamil: Boolean
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color.White)
+            .padding(18.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(PurplePrimary),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.size(13.dp)) {
+                    drawSparkleStarIcon(Color.White)
+                }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (isTamil) "இப்பாடம் பற்றி கேள்வி கேளுங்கள்" else "Ask Follow-Up Question",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextDarkPrimary
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = if (isTamil) "பதிவு செய்யப்பட்ட உரை மற்றும் பாடக் குறிப்புகளிலிருந்து உடனடி பதில்கள்" else "Instant answers from lecture recording and smart notes",
+            fontSize = 11.sp,
+            color = TextMuted
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = questionText,
+                onValueChange = onQuestionChange,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(52.dp),
+                placeholder = {
+                    Text(
+                        text = if (isTamil) "எ.கா: இயல்பாக்கம் என்றால் என்ன?" else "e.g., What did the teacher say about 2NF?",
+                        fontSize = 12.sp,
+                        color = TextMuted
+                    )
+                },
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = SplashBackground,
+                    unfocusedContainerColor = SplashBackground,
+                    focusedBorderColor = PurplePrimary,
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedTextColor = TextDarkPrimary,
+                    unfocusedTextColor = TextDarkPrimary
+                ),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Button(
+                onClick = onAskClick,
+                modifier = Modifier.height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary)
+            ) {
+                Text(
+                    text = if (isTamil) "கேள்" else "Ask",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+
+        if (qaList.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(14.dp))
+            Text(
+                text = if (isTamil) "உங்கள் கேள்விகள்:" else "Your Follow-Up Questions:",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextDarkPrimary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                qaList.forEach { qaItem ->
+                    RelatedAnswerItemCard(item = qaItem)
+                }
             }
         }
     }

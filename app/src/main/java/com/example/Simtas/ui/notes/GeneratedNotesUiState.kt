@@ -21,7 +21,8 @@ data class DetectedQuestionAnswerItem(
     val answer: String,
     val explanation: String = "",
     val status: String = "Answered", // "Answered" or "Not found"
-    val isAnswered: Boolean = true
+    val isAnswered: Boolean = true,
+    val source: String = "[From Lecture]"
 )
 
 /**

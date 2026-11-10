@@ -11,6 +11,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,13 +67,16 @@ import com.example.Simtas.ui.theme.TextMuted
 import com.example.Simtas.ui.theme.TextSubtitle
 
 val RecordingRed = Color(0xFFD32F2F)
+val RecordingAmber = Color(0xFFF59E0B)
+val RecordingGreen = Color(0xFF10B981)
 val InactiveButtonBg = Color(0xFFF5F3FF)
 val InactiveButtonText = Color(0xFF9B8EDB)
 
 /**
- * Record Lecture Screen adhering to MVVM architecture.
- * Supports start/pause/resume/stop recording, audio permission handling,
- * and navigating to lecture preview with the recorded audio.
+ * Record Lecture Screen adhering to MVVM architecture (Phase 6A Upgrade).
+ * Supports smooth start/pause/resume/stop recording, audio permission handling,
+ * dynamic live amplitude waveform visualization, English & Tamil language selection,
+ * safe interruption recovery, and direct pathway to AI notes and revision quizzes.
  */
 @Composable
 fun RecordLectureScreen(
@@ -86,10 +90,10 @@ fun RecordLectureScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    // Safely release recorder if user navigates away
+    // Safely release recorder if user navigates away, preserving audio if meaningful
     DisposableEffect(Unit) {
         onDispose {
-            viewModel.onScreenDisposed()
+            viewModel.onScreenDisposed(context)
         }
     }
 
@@ -98,7 +102,7 @@ fun RecordLectureScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            viewModel.startRecording(context)
+            viewModel.onPermissionGranted(context)
         } else {
             viewModel.onPermissionDenied()
         }
@@ -132,6 +136,12 @@ fun RecordLectureScreen(
             val path = uiState.recordedFilePath ?: SessionManager.getLastRecordedAudioPath() ?: ""
             onNextClick(path)
         },
+        onSelectLanguage = { langCode ->
+            viewModel.setLanguage(langCode)
+        },
+        onRequestPermission = {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        },
         onMicCircleClick = {
             when (uiState.status) {
                 RecordingStatus.IDLE, RecordingStatus.STOPPED -> handleStartRecording()
@@ -153,6 +163,8 @@ fun RecordLectureScreenContent(
     onResumeClick: () -> Unit = {},
     onStopClick: () -> Unit = {},
     onNextClick: () -> Unit = {},
+    onSelectLanguage: (String) -> Unit = {},
+    onRequestPermission: () -> Unit = {},
     onMicCircleClick: () -> Unit = {}
 ) {
     Surface(
@@ -179,24 +191,37 @@ fun RecordLectureScreenContent(
                     onMoreOptionsClick = onMoreOptionsClick
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Course Code Badge
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(InnerCircleBg)
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                // Course Code Badge & Multilingual Language Selector Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = uiState.courseCode,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = PurplePrimary
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(InnerCircleBg)
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = uiState.courseCode,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = PurplePrimary
+                        )
+                    }
+
+                    // Multilingual Language Toggle (English & Tamil)
+                    LanguageSelectorPill(
+                        selectedLanguage = uiState.selectedLanguageCode,
+                        isEnabled = uiState.status != RecordingStatus.RECORDING,
+                        onLanguageChange = onSelectLanguage
                     )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Lecture Title
                 Text(
@@ -217,7 +242,7 @@ fun RecordLectureScreenContent(
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // Central Microphone Visual Halo Circle (Interactive Clickable)
                 val isRecording = uiState.status == RecordingStatus.RECORDING
@@ -231,6 +256,13 @@ fun RecordLectureScreenContent(
                     ),
                     label = "haloScale"
                 )
+
+                val micBgColor = when (uiState.status) {
+                    RecordingStatus.RECORDING -> RecordingRed
+                    RecordingStatus.PAUSED -> RecordingAmber
+                    RecordingStatus.STOPPED -> RecordingGreen
+                    RecordingStatus.IDLE -> PurplePrimary
+                }
 
                 Box(
                     contentAlignment = Alignment.Center,
@@ -246,7 +278,7 @@ fun RecordLectureScreenContent(
                         modifier = Modifier
                             .size(108.dp)
                             .clip(CircleShape)
-                            .background(if (isRecording) RecordingRed else PurplePrimary)
+                            .background(micBgColor)
                     ) {
                         Canvas(modifier = Modifier.size(36.dp)) {
                             drawMicrophoneLargeIcon(Color.White)
@@ -254,7 +286,7 @@ fun RecordLectureScreenContent(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Timer
                 Text(
@@ -267,15 +299,15 @@ fun RecordLectureScreenContent(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Recording Status Dot + Text
+                // Recording Status Dot + Text + Audio Level
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
                     val dotColor = when (uiState.status) {
                         RecordingStatus.RECORDING -> RecordingRed
-                        RecordingStatus.PAUSED -> Color(0xFFF59E0B)
-                        RecordingStatus.STOPPED -> Color(0xFF10B981)
+                        RecordingStatus.PAUSED -> RecordingAmber
+                        RecordingStatus.STOPPED -> RecordingGreen
                         RecordingStatus.IDLE -> TextMuted
                     }
 
@@ -294,13 +326,24 @@ fun RecordLectureScreenContent(
                         fontWeight = FontWeight.Medium,
                         color = dotColor
                     )
+
+                    if (uiState.status == RecordingStatus.RECORDING) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "· ${uiState.audioLevelCategory}",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = TextMuted
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // Live Audio Waveform Visualizer
+                // Real-time Dynamic Live Audio Waveform Visualizer
                 LiveAudioWaveformVisualizer(
-                    isRecording = uiState.status == RecordingStatus.RECORDING
+                    amplitudes = uiState.audioAmplitudes,
+                    status = uiState.status
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -312,7 +355,7 @@ fun RecordLectureScreenContent(
                     textAlign = TextAlign.Center
                 )
 
-                // Error message banner if any error occurred
+                // Permission Denial or Error banner
                 if (!uiState.errorMessage.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(14.dp))
                     Box(
@@ -322,18 +365,51 @@ fun RecordLectureScreenContent(
                             .background(Color(0xFFFEE2E2))
                             .padding(12.dp)
                     ) {
-                        Text(
-                            text = uiState.errorMessage,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFFDC2626),
-                            textAlign = TextAlign.Center,
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.fillMaxWidth()
-                        )
+                        ) {
+                            Text(
+                                text = uiState.errorMessage,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFFDC2626),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            if (uiState.isPermissionDenied) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Button(
+                                    onClick = onRequestPermission,
+                                    colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    Text(
+                                        text = "Grant Permission",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                // Saved Recording Details Card (Displayed when STOPPED)
+                if (uiState.status == RecordingStatus.STOPPED && !uiState.recordedFilePath.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    SavedRecordingCard(
+                        fileName = uiState.recordedFilePath.substringAfterLast('/'),
+                        fileSize = uiState.formattedFileSize,
+                        duration = uiState.timerText,
+                        language = if (uiState.selectedLanguageCode == "ta") "Tamil (தமிழ்)" else "English"
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Recording Control Action Buttons Row
                 RecordingControlButtonsRow(
@@ -348,17 +424,17 @@ fun RecordLectureScreenContent(
 
                 Text(
                     text = when (uiState.status) {
-                        RecordingStatus.IDLE -> "Tap Start or Microphone to begin recording"
+                        RecordingStatus.IDLE -> "Tap Start or Microphone to begin recording lecture"
                         RecordingStatus.RECORDING -> "Pause to pause timer · Stop finishes and saves audio"
                         RecordingStatus.PAUSED -> "Resume to continue recording · Stop saves audio"
-                        RecordingStatus.STOPPED -> "Audio saved locally · Tap Next to review preview"
+                        RecordingStatus.STOPPED -> "Audio saved locally · Tap Next to generate AI notes"
                     },
                     fontSize = 11.sp,
                     color = TextMuted,
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
                 // Next Button (Enabled only after valid recording saved)
                 val isNextEnabled = uiState.status == RecordingStatus.STOPPED &&
@@ -385,8 +461,14 @@ fun RecordLectureScreenContent(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = if (uiState.isUploading) "Uploading audio..." else "Next",
-                            fontSize = 16.sp,
+                            text = if (uiState.isUploading) {
+                                "Uploading audio..."
+                            } else if (isNextEnabled) {
+                                "Next: Transcribe & Generate AI Notes"
+                            } else {
+                                "Next"
+                            },
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             color = nextButtonTextColor
                         )
@@ -401,7 +483,7 @@ fun RecordLectureScreenContent(
 
                 Text(
                     text = if (isNextEnabled) {
-                        "Recorded audio ready (${uiState.formattedFileSize}) · Proceed to preview"
+                        "Offline Whisper STT · Smart Summary · Key Points · Flashcards & Practice Quiz"
                     } else {
                         "Next is available after you stop and save a recording"
                     },
@@ -420,6 +502,119 @@ fun RecordLectureScreenContent(
                     .fillMaxWidth()
                     .padding(bottom = 24.dp)
             )
+        }
+    }
+}
+
+/**
+ * Multilingual Language Selector (English / தமிழ்)
+ */
+@Composable
+private fun LanguageSelectorPill(
+    selectedLanguage: String,
+    isEnabled: Boolean,
+    onLanguageChange: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(InnerCircleBg)
+            .padding(2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // English Option
+        val isEnSelected = selectedLanguage == "en"
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .background(if (isEnSelected) PurplePrimary else Color.Transparent)
+                .clickable(enabled = isEnabled) { onLanguageChange("en") }
+                .padding(horizontal = 10.dp, vertical = 5.dp)
+        ) {
+            Text(
+                text = "EN",
+                fontSize = 11.sp,
+                fontWeight = if (isEnSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isEnSelected) Color.White else TextSubtitle
+            )
+        }
+
+        // Tamil Option
+        val isTaSelected = selectedLanguage == "ta"
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .background(if (isTaSelected) PurplePrimary else Color.Transparent)
+                .clickable(enabled = isEnabled) { onLanguageChange("ta") }
+                .padding(horizontal = 10.dp, vertical = 5.dp)
+        ) {
+            Text(
+                text = "தமிழ்",
+                fontSize = 11.sp,
+                fontWeight = if (isTaSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isTaSelected) Color.White else TextSubtitle
+            )
+        }
+    }
+}
+
+/**
+ * Card displaying saved recording artifacts before proceeding to AI transcription.
+ */
+@Composable
+private fun SavedRecordingCard(
+    fileName: String,
+    fileSize: String,
+    duration: String,
+    language: String
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFFF0FDF4))
+            .border(1.dp, Color(0xFFBBF7D0), RoundedCornerShape(16.dp))
+            .padding(14.dp)
+    ) {
+        Column {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(RecordingGreen)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Recording Ready for Processing",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF15803D)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = fileName,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextDarkPrimary
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "⏱ $duration", fontSize = 11.sp, color = TextMuted)
+                Text(text = "📦 $fileSize", fontSize = 11.sp, color = TextMuted)
+                Text(text = "🌐 $language", fontSize = 11.sp, color = TextMuted)
+            }
         }
     }
 }
@@ -471,32 +666,39 @@ private fun TopNavigationBar(
 }
 
 /**
- * Live Audio Waveform Visualizer
+ * Real-time Dynamic Live Audio Waveform Visualizer
+ * Reacts to actual microphone input amplitudes during live recording.
  */
 @Composable
-private fun LiveAudioWaveformVisualizer(isRecording: Boolean) {
-    val heights = listOf(
-        0.3f, 0.45f, 0.6f, 0.75f, 0.9f, 0.65f, 0.85f, 1.0f,
-        0.8f, 0.95f, 0.7f, 0.85f, 0.45f, 0.35f, 0.5f, 0.3f,
-        0.4f, 0.25f, 0.35f, 0.2f
-    )
-
+private fun LiveAudioWaveformVisualizer(
+    amplitudes: List<Float>,
+    status: RecordingStatus
+) {
     Canvas(
         modifier = Modifier
-            .fillMaxWidth(0.85f)
-            .height(48.dp)
+            .fillMaxWidth(0.9f)
+            .height(52.dp)
     ) {
-        val strokeWidth = 3.5.dp.toPx()
-        val step = size.width / (heights.size + 1)
+        val strokeWidth = 3.8.dp.toPx()
+        val count = amplitudes.size.coerceAtLeast(1)
+        val step = size.width / (count + 1)
 
-        heights.forEachIndexed { index, h ->
+        val activeBarColor = when (status) {
+            RecordingStatus.RECORDING -> PurplePrimary
+            RecordingStatus.PAUSED -> RecordingAmber
+            RecordingStatus.STOPPED -> RecordingGreen
+            RecordingStatus.IDLE -> InnerCircleBg
+        }
+
+        amplitudes.forEachIndexed { index, amp ->
             val x = step * (index + 1)
-            val hPx = size.height * h
-            val startY = (size.height - hPx) / 2
-            val color = if (index < 12 && isRecording) PurplePrimary else InnerCircleBg
+            // Minimum bar height 6dp, maximum full canvas height
+            val minHeightPx = 6.dp.toPx()
+            val hPx = (size.height * amp).coerceIn(minHeightPx, size.height)
+            val startY = (size.height - hPx) / 2f
 
             drawLine(
-                color = color,
+                color = if (status == RecordingStatus.IDLE) InnerCircleBg else activeBarColor,
                 start = Offset(x, startY),
                 end = Offset(x, startY + hPx),
                 strokeWidth = strokeWidth,
@@ -600,14 +802,14 @@ private fun RecordingControlButtonsRow(
                     }
                 }
 
-                // Stop Button
+                // Stop & Save Button
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp)
                         .clip(RoundedCornerShape(18.dp))
-                        .background(PurplePrimary)
+                        .background(if (status == RecordingStatus.RECORDING) RecordingRed else PurplePrimary)
                         .clickable { onStopClick() }
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -616,7 +818,7 @@ private fun RecordingControlButtonsRow(
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Stop",
+                            text = "Stop & Save",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White

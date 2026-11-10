@@ -25,6 +25,7 @@ object SessionManager {
     private var inMemoryLastAudioTitle: String? = null
     private var inMemoryLastAudioDuration: String? = null
     private var inMemoryLastRecordedAudioPath: String? = null
+    private var inMemorySelectedLanguage: String = "en"
     private var inMemoryLastTranscriptText: String? = null
     private var inMemoryLastTranscriptParagraphs: List<com.example.Simtas.ui.transcript.TranscriptParagraph> = emptyList()
     private var inMemoryLastTranscriptionId: Int? = null
@@ -111,6 +112,12 @@ object SessionManager {
     }
 
     fun getLastRecordedAudioPath(): String? = inMemoryLastRecordedAudioPath
+
+    fun setSelectedLanguage(languageCode: String) {
+        inMemorySelectedLanguage = languageCode
+    }
+
+    fun getSelectedLanguage(): String = inMemorySelectedLanguage
 
     fun setLastTranscriptionId(transcriptionId: Int) {
         inMemoryLastTranscriptionId = transcriptionId

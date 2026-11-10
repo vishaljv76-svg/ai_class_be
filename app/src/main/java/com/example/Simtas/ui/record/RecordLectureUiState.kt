@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.record
+package com.example.Simtas.ui.record
 
 enum class RecordingStatus {
     IDLE,
@@ -9,6 +9,8 @@ enum class RecordingStatus {
 
 /**
  * UI State for Record Lecture Screen following MVVM architecture.
+ * Supports smooth start/pause/resume/stop, dynamic amplitude waveform,
+ * multilingual (English/Tamil) selection, and post-recording pathways.
  */
 data class RecordLectureUiState(
     val courseCode: String = "Computer Science - CS301",
@@ -25,5 +27,10 @@ data class RecordLectureUiState(
     val formattedFileSize: String = "",
     val errorMessage: String? = null,
     val isUploading: Boolean = false,
-    val uploadedAudioId: Int? = null
+    val uploadedAudioId: Int? = null,
+    val selectedLanguageCode: String = "en",
+    val audioAmplitudes: List<Float> = List(20) { 0.15f },
+    val audioLevelNormalized: Float = 0f,
+    val audioLevelCategory: String = "Ready",
+    val isPermissionDenied: Boolean = false
 )

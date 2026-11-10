@@ -107,6 +107,11 @@ class LecturePreviewViewModel : ViewModel() {
     }
 
     private fun loadAudioFromSession() {
+        val savedLang = SessionManager.getSelectedLanguage()
+        if (savedLang.isNotBlank()) {
+            _uiState.update { it.copy(selectedLanguageCode = savedLang) }
+        }
+
         val lastTitle = SessionManager.getLastUploadedAudioTitle()
         if (!lastTitle.isNullOrBlank()) {
             _uiState.update { it.copy(lectureTitle = lastTitle) }
@@ -389,16 +394,22 @@ class LecturePreviewViewModel : ViewModel() {
                     it.copy(
                         recognizedText = combined,
                         isTranscribing = false,
+                        transcriptionProgress = 100,
+                        transcriptionFailed = false,
+                        canRetryTranscription = false,
                         statusText = "Recognized (${if (lang == "ta") "Tamil" else "English"})",
                         errorMessage = null,
                         isSaved = true
                     )
                 }
-                analyzeAndAnswerQuestions(combined)
+                extractLectureIntelligence(combined, paragraphs)
             } else {
                 _uiState.update {
                     it.copy(
                         isTranscribing = false,
+                        transcriptionProgress = 0,
+                        transcriptionFailed = true,
+                        canRetryTranscription = true,
                         statusText = "Recognition complete",
                         errorMessage = result.errorMessage ?: "Could not detect clear words. Try speaking closer to mic."
                     )
@@ -420,6 +431,8 @@ class LecturePreviewViewModel : ViewModel() {
             _uiState.update {
                 it.copy(
                     isTranscribing = true,
+                    transcriptionFailed = false,
+                    canRetryTranscription = false,
                     statusText = "Transcribing lecture audio...",
                     transcriptionProgress = 15
                 )
@@ -447,18 +460,24 @@ class LecturePreviewViewModel : ViewModel() {
                     it.copy(
                         recognizedText = combined,
                         isTranscribing = false,
+                        transcriptionProgress = 100,
+                        transcriptionFailed = false,
+                        canRetryTranscription = false,
                         statusText = "Speech recognized",
                         errorMessage = null,
                         isSaved = true
                     )
                 }
-                analyzeAndAnswerQuestions(combined)
+                extractLectureIntelligence(combined, paragraphs)
             } else {
                 _uiState.update {
                     it.copy(
                         isTranscribing = false,
-                        statusText = "Ready to speak or type",
-                        errorMessage = result.errorMessage ?: "No speech recognized. You can type notes manually."
+                        transcriptionProgress = 0,
+                        transcriptionFailed = true,
+                        canRetryTranscription = true,
+                        statusText = "Recognition unconfirmed",
+                        errorMessage = result.errorMessage ?: "No speech recognized. Tap 'Retry Transcription' or type notes manually."
                     )
                 }
             }
@@ -468,6 +487,7 @@ class LecturePreviewViewModel : ViewModel() {
     // --- Manual Text Input, Question Answering & Language Options ---
 
     private var questionAnsweringJob: Job? = null
+    private var intelligenceJob: Job? = null
 
     fun onRecognizedTextChanged(newText: String) {
         _uiState.update { it.copy(recognizedText = newText, errorMessage = null) }
@@ -495,15 +515,35 @@ class LecturePreviewViewModel : ViewModel() {
     }
 
     /**
-     * Reactively extracts questions and generates answers using QuestionAnsweringEngine.
+     * Reactively analyzes lecture text, extracts key concepts, generates teacher's
+     * explanation, summary, key definitions, and study questions strictly from the transcript.
      */
     fun analyzeAndAnswerQuestions(text: String) {
+        extractLectureIntelligence(text)
+    }
+
+    /**
+     * Comprehensive Phase 6A Lecture Understanding Engine:
+     * - Understands and explains what the teacher is teaching.
+     * - Extracts important topics, definitions and key points.
+     * - Generates useful study questions and accurate answers based strictly on the recorded lecture.
+     * - Generates lecture summary and revision questions.
+     * - Supports English and Tamil.
+     */
+    fun extractLectureIntelligence(text: String, paragraphs: List<TranscriptParagraph> = emptyList()) {
+        intelligenceJob?.cancel()
         questionAnsweringJob?.cancel()
         val trimmed = text.trim()
         if (trimmed.isEmpty()) {
             _uiState.update {
                 it.copy(
+                    teacherExplanation = "",
+                    lectureSummary = "",
+                    keyTakeaways = emptyList(),
+                    importantDefinitions = emptyList(),
+                    studyQuestionsAndAnswers = emptyList(),
                     detectedQuestionsAndAnswers = emptyList(),
+                    isAnalyzingIntelligence = false,
                     isAnsweringQuestion = false
                 )
             }
@@ -511,41 +551,180 @@ class LecturePreviewViewModel : ViewModel() {
             return
         }
 
-        questionAnsweringJob = viewModelScope.launch(Dispatchers.Default) {
-            val questions = com.example.Simtas.data.ml.QuestionDetector.extractQuestions(trimmed)
-            if (questions.isEmpty()) {
-                _uiState.update {
-                    it.copy(
-                        detectedQuestionsAndAnswers = emptyList(),
-                        isAnsweringQuestion = false
+        intelligenceJob = viewModelScope.launch(Dispatchers.Default) {
+            _uiState.update { it.copy(isAnalyzingIntelligence = true, isAnsweringQuestion = true) }
+
+            val pList = if (paragraphs.isNotEmpty()) paragraphs else buildParagraphsFromText(trimmed)
+            val currentTitle = _uiState.value.lectureTitle.ifBlank { "Lecture Notes" }
+            val subjectStr = _uiState.value.selectedSubject.substringBefore(" -").trim()
+            val durationStr = _uiState.value.totalTimeText
+
+            val extractive = com.example.Simtas.data.ml.LectureNotesGenerator.generate(
+                transcriptText = trimmed,
+                paragraphs = pList,
+                lectureTitle = currentTitle,
+                subject = subjectStr,
+                durationText = durationStr
+            )
+
+            // Cache generated study notes and detailed notes in session for downstream screens
+            SessionManager.setLastGeneratedNote(extractive.generatedNotes)
+            SessionManager.setLastDetailedNotes(extractive.detailedNotes)
+
+            // 1. Synthesize simple, clear teacher explanation
+            val sec1 = extractive.detailedNotes.section1Content.trim()
+            val calloutContent = extractive.detailedNotes.calloutContent.trim()
+            val calloutTitle = extractive.detailedNotes.calloutTitle.trim()
+            val sec3 = extractive.detailedNotes.section3Content1.trim()
+
+            val teacherExp = buildString {
+                if (sec1.isNotBlank()) {
+                    append(sec1)
+                } else if (extractive.generatedNotes.aiSummaryText.isNotBlank()) {
+                    append(extractive.generatedNotes.aiSummaryText)
+                }
+                if (calloutContent.isNotBlank() && !contains(calloutContent)) {
+                    append("\n\n• Core Concept ($calloutTitle): ").append(calloutContent)
+                }
+                if (sec3.isNotBlank() && sec3 != sec1 && !contains(sec3)) {
+                    append("\n\n• Teacher's Discussion: ").append(sec3)
+                }
+            }
+
+            // 2. Extract key definitions
+            val defsList = mutableListOf<Pair<String, String>>()
+            if (calloutTitle.isNotBlank() && calloutContent.isNotBlank()) {
+                val cleanTitle = calloutTitle
+                    .removePrefix("Key Principle: ")
+                    .removePrefix("Core Concept: ")
+                    .removePrefix("Answer: ")
+                    .trim()
+                defsList.add(cleanTitle to calloutContent)
+            }
+            // Parse additional explicit definitions in transcript
+            val defRegex = Regex("(?i)\\b([A-Z][a-zA-Z0-9\\s]{2,25})\\s+(is defined as|is the process of|refers to|means)\\s+([^.!?\\n]+)")
+            for (match in defRegex.findAll(trimmed)) {
+                val term = match.groupValues[1].trim()
+                val defText = match.value.trim()
+                if (term.isNotBlank() && defsList.none { it.first.equals(term, ignoreCase = true) }) {
+                    defsList.add(term to defText)
+                }
+            }
+            // Tamil definitions check: "[சொல்] என்பது [விளக்கம்]"
+            val tamilDefRegex = Regex("""([^\s,.!?]+)\s+என்பது\s+([^.!?\n]+)""")
+            for (match in tamilDefRegex.findAll(trimmed)) {
+                val term = match.groupValues[1].trim()
+                val defText = match.value.trim()
+                if (term.isNotBlank() && defsList.none { it.first == term }) {
+                    defsList.add(term to defText)
+                }
+            }
+
+            // 3. Automatically generate study and revision questions based strictly on transcript
+            val studyQAs = mutableListOf<com.example.Simtas.ui.notes.DetectedQuestionAnswerItem>()
+
+            // First include detected questions from the audio/transcript
+            studyQAs.addAll(extractive.generatedNotes.detectedQuestionsAndAnswers)
+
+            // Definitional study questions from lecture concepts
+            val isTamil = _uiState.value.selectedLanguageCode == "ta"
+            for ((term, def) in defsList.take(3)) {
+                val qText = if (isTamil) {
+                    "$term என்றால் என்ன?"
+                } else {
+                    "What is $term according to the lecture?"
+                }
+                if (studyQAs.none { it.question.contains(term, ignoreCase = true) }) {
+                    studyQAs.add(
+                        com.example.Simtas.ui.notes.DetectedQuestionAnswerItem(
+                            question = qText,
+                            answer = def,
+                            explanation = "Extracted directly from the lecture recording.",
+                            status = "Answered from Transcript",
+                            isAnswered = true,
+                            source = "[From Lecture]"
+                        )
                     )
                 }
-                SessionManager.setDetectedQuestionsAndAnswers(emptyList())
-                return@launch
             }
 
-            _uiState.update { it.copy(isAnsweringQuestion = true) }
-
-            val qaItems = mutableListOf<com.example.Simtas.ui.notes.DetectedQuestionAnswerItem>()
-            for (q in questions) {
-                val item = com.example.Simtas.data.ml.QuestionAnsweringEngine.answerQuestion(
-                    question = q,
-                    transcriptText = trimmed,
-                    detailedNotes = SessionManager.getLastDetailedNotes(),
-                    summaryText = SessionManager.getLastGeneratedNote()?.aiSummaryText ?: "",
-                    keyTakeaways = SessionManager.getLastGeneratedNote()?.keyTakeaways ?: emptyList()
-                )
-                qaItems.add(item)
+            // Revision questions from key takeaways
+            for (takeaway in extractive.generatedNotes.keyTakeaways.take(3)) {
+                if (studyQAs.none { it.answer.equals(takeaway, ignoreCase = true) }) {
+                    val revQ = if (isTamil) {
+                        "முக்கிய குறிப்பு: ${takeaway.take(35)}..."
+                    } else {
+                        "Key Revision Point: ${takeaway.take(40)}..."
+                    }
+                    studyQAs.add(
+                        com.example.Simtas.ui.notes.DetectedQuestionAnswerItem(
+                            question = revQ,
+                            answer = takeaway,
+                            explanation = "Core takeaway emphasized during the lecture.",
+                            status = "Answered from Lecture Notes",
+                            isAnswered = true,
+                            source = "[From Lecture]"
+                        )
+                    )
+                }
             }
 
-            SessionManager.setDetectedQuestionsAndAnswers(qaItems)
-            _uiState.update {
-                it.copy(
-                    detectedQuestionsAndAnswers = qaItems,
+            SessionManager.setDetectedQuestionsAndAnswers(studyQAs)
+
+            _uiState.update { state ->
+                state.copy(
+                    teacherExplanation = teacherExp,
+                    lectureSummary = extractive.generatedNotes.aiSummaryText,
+                    keyTakeaways = extractive.generatedNotes.keyTakeaways,
+                    importantDefinitions = defsList.take(5),
+                    studyQuestionsAndAnswers = studyQAs,
+                    detectedQuestionsAndAnswers = studyQAs,
+                    isAnalyzingIntelligence = false,
                     isAnsweringQuestion = false
                 )
             }
         }
+    }
+
+    // --- Interactive Follow-Up Questions (Screen 2) ---
+
+    fun onFollowUpQuestionChanged(text: String) {
+        _uiState.update { it.copy(followUpQuestionText = text) }
+    }
+
+    fun askFollowUpQuestion() {
+        val q = _uiState.value.followUpQuestionText.trim()
+        if (q.isBlank()) return
+
+        val transcript = _uiState.value.recognizedText.trim()
+        val detNotes = SessionManager.getLastDetailedNotes()
+        val genNote = SessionManager.getLastGeneratedNote()
+
+        val answerItem = com.example.Simtas.data.ml.QuestionAnsweringEngine.answerQuestion(
+            question = q,
+            transcriptText = transcript,
+            detailedNotes = detNotes,
+            summaryText = genNote?.aiSummaryText ?: _uiState.value.lectureSummary,
+            keyTakeaways = genNote?.keyTakeaways ?: _uiState.value.keyTakeaways
+        )
+
+        _uiState.update { state ->
+            state.copy(
+                followUpQaList = state.followUpQaList + answerItem,
+                followUpQuestionText = ""
+            )
+        }
+    }
+
+    fun retryTranscription(context: Context) {
+        _uiState.update {
+            it.copy(
+                errorMessage = null,
+                transcriptionFailed = false,
+                canRetryTranscription = false
+            )
+        }
+        transcribeLoadedAudio(context)
     }
 
     private fun buildParagraphsFromText(text: String): List<TranscriptParagraph> {

@@ -54,5 +54,9 @@ data class LecturePreviewUiState(
     val followUpQaList: List<DetectedQuestionAnswerItem> = emptyList(),
     val isAnalyzingIntelligence: Boolean = false,
     val transcriptionFailed: Boolean = false,
-    val canRetryTranscription: Boolean = false
+    val canRetryTranscription: Boolean = false,
+    val isFollowUpListening: Boolean = false,
+    val isAskingFollowUp: Boolean = false,
+    val analysisErrorMessage: String? = null,
+    val canRetryAnalysis: Boolean = false
 )

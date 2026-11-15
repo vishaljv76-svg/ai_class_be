@@ -1,10 +1,10 @@
-﻿package com.example.Simtas.ui.onboarding
+package com.example.Simtas.ui.onboarding
 
 /**
  * UI State for Student Onboarding ("Your study profile") Screen following MVVM architecture.
  */
 data class StudentOnboardingUiState(
-    val studentName: String = "Alex Morgan",
+    val studentName: String = "",
     val selectedCourse: String = "B.Tech · Computer Science",
     val selectedDepartment: String = "Computer Science & Engineering",
     val selectedSemester: String = "Semester 7 · Final year",

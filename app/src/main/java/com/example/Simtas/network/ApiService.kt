@@ -42,6 +42,11 @@ data class ChatListConversationsRequest(
     val action: String = "list_conversations"
 )
 
+data class ChatDeleteConversationRequest(
+    val action: String = "delete_conversation",
+    val conversation_id: Int
+)
+
 data class ChatMessageContent(
     val id: Int? = null,
     val role: String = "user",
@@ -102,6 +107,13 @@ data class ChatListConversationsResponse(
     val message: String? = null
 )
 
+data class ChatDeleteConversationResponse(
+    val success: Boolean,
+    val message: String? = null,
+    val deleted_conversation_id: Int? = null,
+    val error_code: String? = null
+)
+
 interface ApiService {
 
     // Existing Login Endpoint
@@ -125,4 +137,9 @@ interface ApiService {
     suspend fun listConversations(
         @Body request: ChatListConversationsRequest = ChatListConversationsRequest()
     ): Response<ChatListConversationsResponse>
+
+    @POST("ai/chat.php")
+    suspend fun deleteConversation(
+        @Body request: ChatDeleteConversationRequest
+    ): Response<ChatDeleteConversationResponse>
 }

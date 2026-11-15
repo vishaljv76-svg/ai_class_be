@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.mynotes
+package com.example.Simtas.ui.mynotes
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -386,14 +386,44 @@ private fun NoteCardItem(
                     Spacer(modifier = Modifier.width(12.dp))
 
                     Column {
-                        Text(
-                            text = note.title,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextDarkPrimary
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = note.title,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextDarkPrimary,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            if (note.tag.contains("Q&A", ignoreCase = true)) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(PurplePrimary.copy(alpha = 0.1f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "AI Q&A",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PurplePrimary
+                                    )
+                                }
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(2.dp))
+
+                        if (note.summary.isNotBlank()) {
+                            Text(
+                                text = note.summary,
+                                fontSize = 11.sp,
+                                color = TextDarkPrimary.copy(alpha = 0.75f),
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                        }
 
                         Text(
                             text = "${note.subject} · ${note.dateText}",

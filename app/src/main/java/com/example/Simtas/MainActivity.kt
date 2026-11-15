@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
@@ -149,7 +150,7 @@ fun MainAppNavigation() {
                     currentScreen = AppScreen.Login
                 }
             } else {
-                currentScreen = AppScreen.Welcome
+                currentScreen = AppScreen.Login
             }
         }
     }
@@ -174,7 +175,7 @@ fun MainAppNavigation() {
         AppScreen.Login -> {
             LoginScreen(
                 onBackClick = {
-                    currentScreen = AppScreen.Welcome
+                    (context as? ComponentActivity)?.finish()
                 },
                 onForgotPasswordClick = {
                     currentScreen = AppScreen.ForgotPassword
@@ -190,7 +191,7 @@ fun MainAppNavigation() {
         AppScreen.Signup -> {
             SignupScreen(
                 onBackClick = {
-                    currentScreen = AppScreen.Welcome
+                    currentScreen = AppScreen.Login
                 },
                 onLoginClick = {
                     currentScreen = AppScreen.Login
@@ -213,7 +214,7 @@ fun MainAppNavigation() {
         AppScreen.StudentOnboarding -> {
             StudentOnboardingScreen(
                 onBackClick = {
-                    currentScreen = AppScreen.Welcome
+                    currentScreen = AppScreen.Login
                 },
                 onChooseSubjectsClick = {
                     currentScreen = AppScreen.SubjectSelection
@@ -460,6 +461,52 @@ fun MainAppNavigation() {
                 }
             )
         }
+    }
+
+    // --- Back Navigation Handlers ---
+    // Prevent returning to Login using the Back button immediately after successful login or while on Dashboard
+    BackHandler(enabled = currentScreen == AppScreen.HomeDashboard) {
+        (context as? ComponentActivity)?.finish()
+    }
+
+    BackHandler(enabled = currentScreen == AppScreen.Login) {
+        (context as? ComponentActivity)?.finish()
+    }
+
+    BackHandler(enabled = currentScreen == AppScreen.Signup || currentScreen == AppScreen.ForgotPassword || currentScreen == AppScreen.StudentOnboarding) {
+        currentScreen = AppScreen.Login
+    }
+
+    BackHandler(enabled = currentScreen == AppScreen.SubjectSelection) {
+        currentScreen = AppScreen.StudentOnboarding
+    }
+
+    BackHandler(enabled = currentScreen == AppScreen.RecordLecture || currentScreen == AppScreen.UploadLecture || currentScreen == AppScreen.GeneratedNotes || currentScreen == AppScreen.MyNotes || currentScreen == AppScreen.ProfileSettings || currentScreen == AppScreen.AiChat) {
+        currentScreen = AppScreen.HomeDashboard
+    }
+
+    BackHandler(enabled = currentScreen == AppScreen.LecturePreview) {
+        currentScreen = AppScreen.HomeDashboard
+    }
+
+    BackHandler(enabled = currentScreen == AppScreen.Transcript) {
+        currentScreen = AppScreen.LecturePreview
+    }
+
+    BackHandler(enabled = currentScreen == AppScreen.CreateSmartNotes) {
+        currentScreen = AppScreen.Transcript
+    }
+
+    BackHandler(enabled = currentScreen == AppScreen.DetailedNotes) {
+        currentScreen = previousScreenForNotes
+    }
+
+    BackHandler(enabled = currentScreen == AppScreen.QuizGenerator) {
+        currentScreen = previousScreenForQuiz
+    }
+
+    BackHandler(enabled = currentScreen == AppScreen.QuizQuestion || currentScreen == AppScreen.QuizResults) {
+        currentScreen = AppScreen.QuizGenerator
     }
 
     // --- Interactive Action Dialogs & Sheets ---

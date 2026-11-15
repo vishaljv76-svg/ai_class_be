@@ -398,6 +398,7 @@ class QaAssistantViewModel : ViewModel() {
                             errorMessage = null
                         )
                     }
+                    autoSaveQuestionAnswerToMyNotes(q, assistantText, subject, lectureTitle)
                     // Refresh conversation list after new message
                     fetchConversations()
                 }
@@ -431,6 +432,7 @@ class QaAssistantViewModel : ViewModel() {
                             errorMessage = result.message
                         )
                     }
+                    autoSaveQuestionAnswerToMyNotes(q, offlineAnswer.answer, subject, lectureTitle)
                 }
             }
         }
@@ -466,6 +468,32 @@ class QaAssistantViewModel : ViewModel() {
                 isLoading = false,
                 errorMessage = null
             )
+        }
+        autoSaveQuestionAnswerToMyNotes(question, offlineAnswer.answer, null, null)
+    }
+
+    private fun autoSaveQuestionAnswerToMyNotes(
+        question: String,
+        answer: String,
+        subject: String?,
+        lectureTitle: String?
+    ) {
+        val q = question.trim()
+        val a = answer.trim()
+        if (q.isBlank() || a.isBlank()) return
+
+        val s = subject?.ifBlank { "Computer Science" } ?: "Computer Science"
+        val l = lectureTitle?.ifBlank { "AI Study Copilot" } ?: "AI Study Copilot"
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                com.example.Simtas.data.repository.NotesRepositoryImpl.saveAiQuestionAnswer(
+                    question = q,
+                    answer = a,
+                    subject = s,
+                    lectureTitle = l
+                )
+            } catch (_: Exception) {}
         }
     }
 
@@ -537,6 +565,24 @@ class QaAssistantViewModel : ViewModel() {
                 errorMessage = null,
                 isLoading = false
             )
+        }
+    }
+
+    fun deleteConversation(conversationId: Int, onDeleted: (() -> Unit)? = null) {
+        viewModelScope.launch {
+            val result = ChatRepository.deleteConversation(conversationId)
+            when (result) {
+                is ChatResult.Success -> {
+                    if (_uiState.value.conversationId == conversationId) {
+                        startNewChat()
+                    }
+                    fetchConversations()
+                    onDeleted?.invoke()
+                }
+                is ChatResult.Error -> {
+                    _uiState.update { it.copy(errorMessage = result.message) }
+                }
+            }
         }
     }
 

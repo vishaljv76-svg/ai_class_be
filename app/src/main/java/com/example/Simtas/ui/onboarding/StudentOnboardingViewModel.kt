@@ -1,7 +1,8 @@
-﻿package com.example.Simtas.ui.onboarding
+package com.example.Simtas.ui.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.Simtas.data.remote.SessionManager
 import com.example.Simtas.data.repository.ProfileRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +15,11 @@ import kotlinx.coroutines.launch
  */
 class StudentOnboardingViewModel : ViewModel() {
 
-    private val _uiState = MutableStateFlow(StudentOnboardingUiState())
+    private val _uiState = MutableStateFlow(
+        StudentOnboardingUiState(
+            studentName = SessionManager.getUserName()
+        )
+    )
     val uiState: StateFlow<StudentOnboardingUiState> = _uiState.asStateFlow()
 
     fun onStudentNameChanged(name: String) {

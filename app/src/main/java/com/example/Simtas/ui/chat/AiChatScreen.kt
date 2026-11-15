@@ -33,6 +33,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -45,7 +46,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import com.example.Simtas.network.ChatConversationItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -102,6 +105,7 @@ fun AiChatScreen(
     val coroutineScope = rememberCoroutineScope()
     var queryText by remember { mutableStateOf("") }
     var showHistorySheet by remember { mutableStateOf(false) }
+    var conversationToDelete by remember { mutableStateOf<ChatConversationItem?>(null) }
     var isAttachingAudio by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
@@ -639,19 +643,33 @@ fun AiChatScreen(
                                         }
                                     }
 
-                                    if (conv.message_count != null && conv.message_count > 0) {
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(Color(0xFFEDE9FE))
-                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        if (conv.message_count != null && conv.message_count > 0) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(Color(0xFFEDE9FE))
+                                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                            ) {
+                                                Text(
+                                                    text = "${conv.message_count} msgs",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = PurplePrimary
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                        }
+
+                                        IconButton(
+                                            onClick = { conversationToDelete = conv },
+                                            modifier = Modifier.size(32.dp)
                                         ) {
-                                            Text(
-                                                text = "${conv.message_count} msgs",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = PurplePrimary
-                                            )
+                                            Canvas(modifier = Modifier.size(16.dp)) {
+                                                drawTrashIcon(Color(0xFFEF4444))
+                                            }
                                         }
                                     }
                                 }
@@ -661,6 +679,48 @@ fun AiChatScreen(
                 }
             }
         }
+    }
+
+    // --- Delete Conversation Confirmation Dialog ---
+    if (conversationToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { conversationToDelete = null },
+            title = {
+                Text(
+                    text = "Delete Conversation?",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = TextDarkPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete \"${conversationToDelete?.displayTitle}\"? All messages in this conversation will be permanently removed.",
+                    fontSize = 13.sp,
+                    color = TextDarkPrimary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val toDelete = conversationToDelete
+                        if (toDelete != null) {
+                            viewModel.deleteConversation(toDelete.id)
+                        }
+                        conversationToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Delete", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { conversationToDelete = null }) {
+                    Text("Cancel", color = TextDarkPrimary, fontSize = 12.sp)
+                }
+            }
+        )
     }
 }
 
@@ -1037,6 +1097,68 @@ private fun DrawScope.drawSquareStopIcon(color: Color) {
         topLeft = Offset(size.width * 0.28f, size.height * 0.28f),
         size = Size(size.width * 0.44f, size.height * 0.44f),
         cornerRadius = CornerRadius(2.dp.toPx())
+    )
+}
+
+private fun DrawScope.drawTrashIcon(color: Color) {
+    val strokeWidth = 1.6.dp.toPx()
+    val w = size.width
+    val h = size.height
+
+    // Lid horizontal bar
+    drawLine(
+        color = color,
+        start = Offset(w * 0.2f, h * 0.28f),
+        end = Offset(w * 0.8f, h * 0.28f),
+        strokeWidth = strokeWidth,
+        cap = StrokeCap.Round
+    )
+    // Lid handle
+    drawLine(
+        color = color,
+        start = Offset(w * 0.4f, h * 0.28f),
+        end = Offset(w * 0.4f, h * 0.18f),
+        strokeWidth = strokeWidth,
+        cap = StrokeCap.Round
+    )
+    drawLine(
+        color = color,
+        start = Offset(w * 0.4f, h * 0.18f),
+        end = Offset(w * 0.6f, h * 0.18f),
+        strokeWidth = strokeWidth,
+        cap = StrokeCap.Round
+    )
+    drawLine(
+        color = color,
+        start = Offset(w * 0.6f, h * 0.18f),
+        end = Offset(w * 0.6f, h * 0.28f),
+        strokeWidth = strokeWidth,
+        cap = StrokeCap.Round
+    )
+    // Bin body
+    val bodyPath = Path().apply {
+        moveTo(w * 0.28f, h * 0.32f)
+        lineTo(w * 0.33f, h * 0.82f)
+        quadraticBezierTo(w * 0.34f, h * 0.86f, w * 0.38f, h * 0.86f)
+        lineTo(w * 0.62f, h * 0.86f)
+        quadraticBezierTo(w * 0.66f, h * 0.86f, w * 0.67f, h * 0.82f)
+        lineTo(w * 0.72f, h * 0.32f)
+    }
+    drawPath(bodyPath, color = color, style = Stroke(width = strokeWidth))
+    // Vertical ribs
+    drawLine(
+        color = color,
+        start = Offset(w * 0.44f, h * 0.42f),
+        end = Offset(w * 0.44f, h * 0.74f),
+        strokeWidth = strokeWidth,
+        cap = StrokeCap.Round
+    )
+    drawLine(
+        color = color,
+        start = Offset(w * 0.56f, h * 0.42f),
+        end = Offset(w * 0.56f, h * 0.74f),
+        strokeWidth = strokeWidth,
+        cap = StrokeCap.Round
     )
 }
 

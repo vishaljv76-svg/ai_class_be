@@ -2,6 +2,7 @@ package com.example.Simtas.data.repository
 
 import com.example.Simtas.data.remote.SessionManager
 import com.example.Simtas.network.ChatConversationItem
+import com.example.Simtas.network.ChatDeleteConversationRequest
 import com.example.Simtas.network.ChatHistoryMessageItem
 import com.example.Simtas.network.ChatHistoryRequest
 import com.example.Simtas.network.ChatMessageContent
@@ -58,7 +59,7 @@ object ChatRepository {
 
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
-                if (body.success && body.conversation_id != null) {
+                if (body.success && body.conversation_id != null && body.assistant_message != null) {
                     ChatResult.Success(
                         ChatSendResultData(
                             conversationId = body.conversation_id,
@@ -82,7 +83,7 @@ object ChatRepository {
                     401, 403 -> "Authentication expired or unauthorized. Please re-login."
                     404 -> "Chat service endpoint not found."
                     429 -> "Rate limit reached. Please wait a moment before sending more messages."
-                    503 -> "AI chat service is temporarily unavailable. Please try again shortly."
+                    502, 503 -> "AI chat service is temporarily busy. Offline fallback available."
                     else -> "Server error ($code). Please try again later."
                 }
                 ChatResult.Error(
@@ -174,6 +175,45 @@ object ChatRepository {
         } catch (e: Exception) {
             ChatResult.Error(
                 message = e.localizedMessage ?: "Failed to fetch conversations",
+                errorCode = "NETWORK_EXCEPTION"
+            )
+        }
+    }
+
+    suspend fun deleteConversation(conversationId: Int): ChatResult<Boolean> = withContext(Dispatchers.IO) {
+        if (!SessionManager.isLoggedIn()) {
+            return@withContext ChatResult.Error(
+                message = "You are not logged in.",
+                errorCode = "UNAUTHENTICATED",
+                isAuthError = true
+            )
+        }
+
+        try {
+            val request = ChatDeleteConversationRequest(conversation_id = conversationId)
+            val response = RetrofitClient.apiService.deleteConversation(request)
+
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                if (body.success) {
+                    ChatResult.Success(true)
+                } else {
+                    ChatResult.Error(
+                        message = body.message ?: "Failed to delete conversation",
+                        errorCode = body.error_code
+                    )
+                }
+            } else {
+                val code = response.code()
+                ChatResult.Error(
+                    message = "Failed to delete conversation ($code)",
+                    errorCode = "HTTP_$code",
+                    isAuthError = code == 401 || code == 403
+                )
+            }
+        } catch (e: Exception) {
+            ChatResult.Error(
+                message = e.localizedMessage ?: "Failed to delete conversation",
                 errorCode = "NETWORK_EXCEPTION"
             )
         }

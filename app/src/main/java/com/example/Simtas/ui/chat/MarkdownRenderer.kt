@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -27,6 +29,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -52,11 +55,14 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -83,7 +89,7 @@ sealed class MarkdownElement {
 /**
  * Main Markdown and Visual Diagram renderer for SmartNotes AI.
  * Parses Gemini responses and renders clean typography, code blocks with syntax highlighting,
- * responsive tables, and interactive educational Mermaid diagrams with explanations.
+ * responsive tables, clickable online resources, and interactive educational Mermaid diagrams with explanations.
  */
 @Composable
 fun MarkdownViewer(
@@ -143,13 +149,65 @@ private fun RenderHeading(heading: MarkdownElement.Heading, isDark: Boolean) {
     )
 }
 
+// --- Helper Composable for Clickable & Formatted Inline Markdown Text ---
+
+@Composable
+fun InlineMarkdownText(
+    text: String,
+    isDark: Boolean,
+    modifier: Modifier = Modifier,
+    fontSize: TextUnit = 14.sp,
+    fontWeight: FontWeight = FontWeight.Normal,
+    fontStyle: FontStyle = FontStyle.Normal,
+    color: Color = TextDarkPrimary,
+    lineHeight: TextUnit = 22.sp
+) {
+    val context = LocalContext.current
+    val annotated = remember(text, isDark) { buildInlineAnnotatedString(text, isDark) }
+    val hasUrl = remember(annotated) { annotated.getStringAnnotations("URL", 0, annotated.length).isNotEmpty() }
+
+    if (hasUrl) {
+        ClickableText(
+            text = annotated,
+            style = TextStyle(
+                fontSize = fontSize,
+                fontWeight = fontWeight,
+                fontStyle = fontStyle,
+                color = color,
+                lineHeight = lineHeight
+            ),
+            modifier = modifier,
+            onClick = { offset ->
+                annotated.getStringAnnotations("URL", offset, offset).firstOrNull()?.let { link ->
+                    try {
+                        val parsedUri = Uri.parse(link.item)
+                        val intent = Intent(Intent.ACTION_VIEW, parsedUri)
+                        context.startActivity(intent)
+                    } catch (_: Exception) {}
+                }
+            }
+        )
+    } else {
+        Text(
+            text = annotated,
+            fontSize = fontSize,
+            fontWeight = fontWeight,
+            fontStyle = fontStyle,
+            color = color,
+            lineHeight = lineHeight,
+            modifier = modifier
+        )
+    }
+}
+
 // --- Render Paragraph ---
 
 @Composable
 private fun RenderParagraph(paragraph: MarkdownElement.Paragraph, isDark: Boolean) {
     SelectionContainer {
-        Text(
-            text = buildInlineAnnotatedString(paragraph.text, isDark),
+        InlineMarkdownText(
+            text = paragraph.text,
+            isDark = isDark,
             fontSize = 14.sp,
             color = TextDarkPrimary,
             lineHeight = 22.sp
@@ -175,8 +233,9 @@ private fun RenderBulletList(list: MarkdownElement.BulletList, isDark: Boolean) 
                         .background(PurplePrimary)
                 )
                 SelectionContainer(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = buildInlineAnnotatedString(item, isDark),
+                    InlineMarkdownText(
+                        text = item,
+                        isDark = isDark,
                         fontSize = 14.sp,
                         color = TextDarkPrimary,
                         lineHeight = 21.sp
@@ -207,8 +266,9 @@ private fun RenderNumberedList(list: MarkdownElement.NumberedList, isDark: Boole
                         .width(22.dp)
                 )
                 SelectionContainer(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = buildInlineAnnotatedString(item, isDark),
+                    InlineMarkdownText(
+                        text = item,
+                        isDark = isDark,
                         fontSize = 14.sp,
                         color = TextDarkPrimary,
                         lineHeight = 21.sp
@@ -356,8 +416,9 @@ private fun RenderTable(table: MarkdownElement.TableBlock, isDark: Boolean) {
                         .padding(vertical = 8.dp)
                 ) {
                     row.forEach { cell ->
-                        Text(
-                            text = buildInlineAnnotatedString(cell.trim(), isDark),
+                        InlineMarkdownText(
+                            text = cell.trim(),
+                            isDark = isDark,
                             fontSize = 12.sp,
                             color = TextDarkPrimary,
                             lineHeight = 16.sp,
@@ -395,8 +456,9 @@ private fun RenderBlockquote(blockquote: MarkdownElement.Blockquote, isDark: Boo
                 .background(PurplePrimary)
         )
         Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            text = buildInlineAnnotatedString(blockquote.text, isDark),
+        InlineMarkdownText(
+            text = blockquote.text,
+            isDark = isDark,
             fontSize = 13.sp,
             fontStyle = FontStyle.Italic,
             color = TextDarkPrimary,
@@ -450,98 +512,111 @@ fun RenderDiagram(diagram: MarkdownElement.DiagramBlock, isDark: Boolean) {
                 )
             }
 
-            // Visual Diagram Container (WebView Mermaid or Native Vector Fallback)
+            HorizontalDivider(color = OuterRingBorder, thickness = 1.dp)
+
+            // Diagram Content Body (WebView with on-device fallback)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 220.dp, max = 380.dp)
-                    .background(if (isDark) Color(0xFF13111C) else Color(0xFFFAFAFE)),
+                    .heightIn(min = 180.dp, max = 340.dp)
+                    .background(if (isDark) Color(0xFF1E1E2E) else Color(0xFFFAFAFC)),
                 contentAlignment = Alignment.Center
             ) {
-                if (hasWebViewError) {
-                    // Native Compose Vector Diagram Fallback
-                    NativeVectorDiagramFallback(diagram.code, isDark)
-                } else {
+                if (!hasWebViewError) {
                     MermaidWebView(
-                        mermaidCode = diagram.code,
+                        diagramCode = diagram.code,
                         isDark = isDark,
-                        onLoadingChanged = { isWebViewLoading = it },
+                        onLoadingChange = { loading -> isWebViewLoading = loading },
                         onError = { hasWebViewError = true }
                     )
+                }
 
-                    if (isWebViewLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = PurplePrimary,
-                            strokeWidth = 2.dp
-                        )
-                    }
+                if (isWebViewLoading && !hasWebViewError) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(28.dp),
+                        color = PurplePrimary,
+                        strokeWidth = 2.5.dp
+                    )
+                }
+
+                if (hasWebViewError) {
+                    // Clean native fallback card when WebView unavailable
+                    NativeDiagramFallback(diagram.code, isDark)
                 }
             }
 
-            // Diagram Educational Explanation Callout
+            // Educational Diagram Companion Explanation
             if (!diagram.explanation.isNullOrBlank()) {
-                HorizontalDivider(color = OuterRingBorder, thickness = 1.dp)
+                HorizontalDivider(color = OuterRingBorder.copy(alpha = 0.6f), thickness = 0.5.dp)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .background(if (isDark) Color(0xFF231C38) else Color(0xFFF9F7FD))
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Canvas(modifier = Modifier.size(16.dp)) {
-                        drawLightbulbIcon(PurplePrimary)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = diagram.explanation,
-                        fontSize = 12.sp,
-                        color = TextDarkPrimary,
-                        lineHeight = 17.sp,
-                        fontStyle = FontStyle.Italic
+                    Box(
+                        modifier = Modifier
+                            .width(2.5.dp)
+                            .height(26.dp)
+                            .clip(RoundedCornerShape(1.dp))
+                            .background(PurplePrimary)
                     )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    SelectionContainer {
+                        InlineMarkdownText(
+                            text = diagram.explanation,
+                            isDark = isDark,
+                            fontSize = 12.sp,
+                            fontStyle = FontStyle.Italic,
+                            color = TextDarkPrimary,
+                            lineHeight = 17.sp
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-// --- Mermaid WebView Component ---
+// --- Mermaid HTML WebView Component ---
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun MermaidWebView(
-    mermaidCode: String,
+    diagramCode: String,
     isDark: Boolean,
-    onLoadingChanged: (Boolean) -> Unit,
+    onLoadingChange: (Boolean) -> Unit,
     onError: () -> Unit
 ) {
-    val cleanCode = remember(mermaidCode) {
-        mermaidCode.replace("\\", "\\\\").replace("`", "\\`")
-    }
+    val theme = if (isDark) "dark" else "default"
+    val bgColor = if (isDark) "#1E1E2E" else "#FAFAFC"
+    val textColor = if (isDark) "#CDD6F4" else "#1E1B4B"
 
-    val htmlContent = remember(cleanCode, isDark) {
-        val themeStr = if (isDark) "dark" else "default"
-        """
+    val sanitizedCode = diagramCode.replace("`", "")
+        .replace("\\", "\\\\")
+        .replace("\$", "\\$")
+
+    val htmlContent = """
         <!DOCTYPE html>
         <html>
         <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=4.0, user-scalable=yes">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
             <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
             <style>
                 body {
                     margin: 0;
-                    padding: 12px;
-                    background: transparent;
+                    padding: 16px;
                     display: flex;
                     justify-content: center;
                     align-items: center;
-                    min-height: 100vh;
-                    box-sizing: border-box;
-                    font-family: -apple-system, Roboto, sans-serif;
+                    background-color: $bgColor;
+                    color: $textColor;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                    overflow: auto;
                 }
                 .mermaid {
                     width: 100%;
-                    overflow-x: auto;
                     display: flex;
                     justify-content: center;
                 }
@@ -553,41 +628,40 @@ private fun MermaidWebView(
         </head>
         <body>
             <div class="mermaid">
-                $cleanCode
+                $sanitizedCode
             </div>
             <script>
                 try {
                     mermaid.initialize({
                         startOnLoad: true,
-                        theme: '$themeStr',
+                        theme: '$theme',
                         securityLevel: 'loose',
-                        flowchart: { useMaxWidth: true, htmlLabels: true }
+                        flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' }
                     });
                 } catch(e) {
-                    console.error("Mermaid init error:", e);
+                    console.error(e);
                 }
             </script>
         </body>
         </html>
-        """.trimIndent()
-    }
+    """.trimIndent()
 
     AndroidView(
-        factory = { context ->
-            WebView(context).apply {
-                setBackgroundColor(0) // Transparent
-                settings.apply {
-                    javaScriptEnabled = true
-                    domStorageEnabled = true
-                    loadWithOverviewMode = true
-                    useWideViewPort = true
-                    setSupportZoom(true)
-                    builtInZoomControls = true
-                    displayZoomControls = false
-                }
+        factory = { ctx ->
+            WebView(ctx).apply {
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.builtInZoomControls = true
+                settings.displayZoomControls = false
+                settings.loadWithOverviewMode = true
+                settings.useWideViewPort = true
+                setBackgroundColor(0)
+
+                webChromeClient = WebChromeClient()
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
-                        onLoadingChanged(false)
+                        super.onPageFinished(view, url)
+                        onLoadingChange(false)
                     }
 
                     override fun onReceivedError(
@@ -596,67 +670,80 @@ private fun MermaidWebView(
                         description: String?,
                         failingUrl: String?
                     ) {
+                        super.onReceivedError(view, errorCode, description, failingUrl)
+                        onLoadingChange(false)
                         onError()
                     }
                 }
-                webChromeClient = WebChromeClient()
                 loadDataWithBaseURL("https://localhost", htmlContent, "text/html", "UTF-8", null)
             }
         },
         update = { webView ->
             webView.loadDataWithBaseURL("https://localhost", htmlContent, "text/html", "UTF-8", null)
         },
-        modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp, max = 380.dp)
+        modifier = Modifier.fillMaxWidth().height(260.dp)
     )
 }
 
-// --- Native Compose Vector Diagram Fallback (100% Offline) ---
+// --- Native Canvas & Box Fallback for Diagrams ---
 
 @Composable
-private fun NativeVectorDiagramFallback(mermaidCode: String, isDark: Boolean) {
-    val nodes = remember(mermaidCode) { parseMermaidNodes(mermaidCode) }
+private fun NativeDiagramFallback(code: String, isDark: Boolean) {
+    val steps = remember(code) { extractDiagramNodes(code) }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        nodes.forEachIndexed { index, node ->
+        steps.forEachIndexed { index, step ->
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (isDark) Color(0xFF261F42) else Color(0xFFEDE9FE))
-                    .border(1.dp, PurplePrimary, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isDark) Color(0xFF2C2448) else Color(0xFFEDE9FE))
+                    .border(1.dp, PurplePrimary.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = node,
+                    text = step,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = if (isDark) Color(0xFFEDE9FE) else PurplePrimary
                 )
             }
 
-            if (index < nodes.size - 1) {
-                Canvas(modifier = Modifier.size(16.dp)) {
-                    drawDownArrow(PurplePrimary)
+            if (index < steps.size - 1) {
+                Canvas(modifier = Modifier.size(12.dp)) {
+                    val w = size.width
+                    val h = size.height
+                    drawLine(
+                        color = PurplePrimary,
+                        start = Offset(w / 2, 0f),
+                        end = Offset(w / 2, h),
+                        strokeWidth = 2.dp.toPx()
+                    )
                 }
             }
         }
     }
 }
 
-private fun parseMermaidNodes(mermaidCode: String): List<String> {
+// --- Extract node labels from Mermaid syntax ---
+
+private fun extractDiagramNodes(code: String): List<String> {
     val results = mutableListOf<String>()
-    val lines = mermaidCode.lines()
-    val pattern = Regex("\\[[\"']?(.*?)[\"']?\\]|\\([\"']?(.*?)[\"']?\\)|\\{[\"']?(.*?)[\"']?\\}")
+    val lines = code.lines()
+
+    val pattern = Regex("""\[(?:\"([^\"]+)\"|([^\]]+))\]""")
 
     for (line in lines) {
         val trimmed = line.trim()
-        if (trimmed.startsWith("graph") || trimmed.startsWith("flowchart") || trimmed.startsWith("%%")) continue
+        if (trimmed.startsWith("graph") || trimmed.startsWith("flowchart") ||
+            trimmed.startsWith("subgraph") || trimmed.startsWith("style") || trimmed == "end") {
+            continue
+        }
 
         val matches = pattern.findAll(trimmed)
         for (m in matches) {
@@ -670,7 +757,7 @@ private fun parseMermaidNodes(mermaidCode: String): List<String> {
     return if (results.isNotEmpty()) results else listOf("Process Start", "Analysis & Execution", "Output Generated")
 }
 
-// --- Inline Markdown Parser (Bold, Italic, Code, Math) ---
+// --- Inline Markdown Parser (Bold, Italic, Code, Math, Links) ---
 
 fun buildInlineAnnotatedString(text: String, isDark: Boolean): AnnotatedString {
     return buildAnnotatedString {
@@ -678,6 +765,67 @@ fun buildInlineAnnotatedString(text: String, isDark: Boolean): AnnotatedString {
         val len = text.length
 
         while (i < len) {
+            // Markdown Link: [text](url)
+            if (text[i] == '[') {
+                val closeBracket = text.indexOf(']', i + 1)
+                if (closeBracket != -1 && closeBracket + 1 < len && text[closeBracket + 1] == '(') {
+                    val closeParen = text.indexOf(')', closeBracket + 2)
+                    if (closeParen != -1) {
+                        val linkText = text.substring(i + 1, closeBracket)
+                        val url = text.substring(closeBracket + 2, closeParen).trim()
+                        val start = length
+                        append(linkText)
+                        val end = length
+                        addStyle(
+                            SpanStyle(
+                                color = if (isDark) Color(0xFF89B4FA) else Color(0xFF2563EB),
+                                fontWeight = FontWeight.SemiBold,
+                                textDecoration = TextDecoration.Underline
+                            ),
+                            start,
+                            end
+                        )
+                        addStringAnnotation(
+                            tag = "URL",
+                            annotation = url,
+                            start = start,
+                            end = end
+                        )
+                        i = closeParen + 1
+                        continue
+                    }
+                }
+            }
+
+            // Bare URL: https://... or http://...
+            if ((text.startsWith("https://", i) || text.startsWith("http://", i))) {
+                var urlEnd = i
+                while (urlEnd < len && !Character.isWhitespace(text[urlEnd]) && text[urlEnd] != ')' && text[urlEnd] != ']' && text[urlEnd] != '>') {
+                    urlEnd++
+                }
+                val rawUrl = text.substring(i, urlEnd).trimEnd('.', ',', ';', ':')
+                val start = length
+                append(rawUrl)
+                val end = length
+                addStyle(
+                    SpanStyle(
+                        color = if (isDark) Color(0xFF89B4FA) else Color(0xFF2563EB),
+                        fontWeight = FontWeight.SemiBold,
+                        textDecoration = TextDecoration.Underline
+                    ),
+                    start,
+                    end
+                )
+                addStringAnnotation(
+                    tag = "URL",
+                    annotation = rawUrl,
+                    start = start,
+                    end = end
+                )
+                i = i + rawUrl.length
+                continue
+            }
+
             // Bold Italic: ***text***
             if (i + 5 < len && text.startsWith("***", i)) {
                 val end = text.indexOf("***", i + 3)
@@ -802,14 +950,14 @@ private fun buildSyntaxHighlightedCode(code: String, language: String): Annotate
                     }
                 }
 
-                // Identifiers / Words
-                if (Character.isJavaIdentifierStart(line[col])) {
-                    val start = col
-                    while (col < len && Character.isJavaIdentifierPart(line[col])) {
+                // Identifiers / Keywords
+                if (line[col].isLetter() || line[col] == '_') {
+                    val wordStart = col
+                    while (col < len && (line[col].isLetterOrDigit() || line[col] == '_')) {
                         col++
                     }
-                    val word = line.substring(start, col)
-                    if (keywords.contains(word) || keywords.contains(word.uppercase())) {
+                    val word = line.substring(wordStart, col)
+                    if (keywords.contains(word)) {
                         withStyle(SpanStyle(color = Color(0xFFCBA6F7), fontWeight = FontWeight.Bold)) {
                             append(word)
                         }
@@ -822,18 +970,18 @@ private fun buildSyntaxHighlightedCode(code: String, language: String): Annotate
                 }
 
                 // Numbers
-                if (Character.isDigit(line[col])) {
-                    val start = col
-                    while (col < len && (Character.isDigit(line[col]) || line[col] == '.')) {
+                if (line[col].isDigit()) {
+                    val numStart = col
+                    while (col < len && (line[col].isDigit() || line[col] == '.')) {
                         col++
                     }
                     withStyle(SpanStyle(color = Color(0xFFFAB387))) {
-                        append(line.substring(start, col))
+                        append(line.substring(numStart, col))
                     }
                     continue
                 }
 
-                // Other symbols / operators
+                // Symbols & Operators
                 withStyle(SpanStyle(color = Color(0xFF89DCEB))) {
                     append(line[col])
                 }
@@ -847,218 +995,176 @@ private fun buildSyntaxHighlightedCode(code: String, language: String): Annotate
     }
 }
 
-// --- Content Parser (Splits Raw Markdown into Elements) ---
+// --- Markdown Document Parser ---
 
-fun parseMarkdownContent(rawContent: String): List<MarkdownElement> {
+fun parseMarkdownContent(rawText: String): List<MarkdownElement> {
     val elements = mutableListOf<MarkdownElement>()
-    val lines = rawContent.lines()
+    val lines = rawText.lines()
     var i = 0
 
     while (i < lines.size) {
         val line = lines[i].trimEnd()
 
-        // 1. Code Block or Mermaid Diagram
+        if (line.isBlank()) {
+            i++
+            continue
+        }
+
+        // Fenced Code or Diagram Block: ```lang ... ```
         if (line.trimStart().startsWith("```")) {
-            val lang = line.trimStart().removePrefix("```").trim().lowercase()
+            val lang = line.trim().removePrefix("```").trim()
             val codeLines = mutableListOf<String>()
             i++
-            while (i < lines.size && !lines[i].trimStart().startsWith("```")) {
+            while (i < lines.size && !lines[i].trim().startsWith("```")) {
                 codeLines.add(lines[i])
                 i++
             }
-            if (i < lines.size && lines[i].trimStart().startsWith("```")) {
-                i++ // Skip closing ```
-            }
+            if (i < lines.size) i++ // consume closing ```
 
-            val codeBody = codeLines.joinToString("\n")
-            if (lang == "mermaid") {
-                // Check if explanation follows on the next line
+            val fullBlock = codeLines.joinToString("\n")
+            if (lang.lowercase() == "mermaid") {
+                // Peek ahead for companion explanation: *explanation* or _explanation_
                 var explanation: String? = null
-                if (i < lines.size && lines[i].isNotBlank()) {
-                    val nextLine = lines[i].trim()
-                    if (nextLine.startsWith("*") || nextLine.startsWith("Explanation:") || nextLine.startsWith("Note:")) {
-                        explanation = nextLine.removePrefix("*").removeSuffix("*").removePrefix("Explanation:").trim()
+                if (i < lines.size && lines[i].trim().isNotBlank()) {
+                    val candidate = lines[i].trim()
+                    if ((candidate.startsWith("*") && candidate.endsWith("*")) ||
+                        (candidate.startsWith("_") && candidate.endsWith("_"))) {
+                        explanation = candidate.removeSurrounding("*").removeSurrounding("_").trim()
                         i++
                     }
                 }
-                elements.add(MarkdownElement.DiagramBlock(type = "mermaid", code = codeBody, explanation = explanation))
+                elements.add(MarkdownElement.DiagramBlock(type = "mermaid", code = fullBlock, explanation = explanation))
             } else {
-                elements.add(MarkdownElement.CodeBlock(language = lang, code = codeBody))
+                elements.add(MarkdownElement.CodeBlock(language = lang, code = fullBlock))
             }
             continue
         }
 
-        // 2. Table Block (| Col 1 | Col 2 |)
+        // Headings: #, ##, ###, ####
+        if (line.startsWith("#")) {
+            val level = line.takeWhile { it == '#' }.length
+            val headingText = line.drop(level).trim()
+            elements.add(MarkdownElement.Heading(level = level, text = headingText))
+            i++
+            continue
+        }
+
+        // Markdown Table: | col1 | col2 |
         if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
             val tableLines = mutableListOf<String>()
             while (i < lines.size && lines[i].trim().startsWith("|") && lines[i].trim().endsWith("|")) {
                 tableLines.add(lines[i].trim())
                 i++
             }
-
             if (tableLines.size >= 2) {
-                val headerLine = tableLines[0]
-                val headers = headerLine.split("|").map { it.trim() }.filter { it.isNotBlank() }
-
+                val headers = tableLines[0].split("|").filter { it.isNotBlank() }.map { it.trim() }
                 val rows = mutableListOf<List<String>>()
-                for (tIdx in 1 until tableLines.size) {
-                    val rLine = tableLines[tIdx]
-                    // Skip delimiter line |---|---|
-                    if (rLine.contains("---") || rLine.contains("-|-")) continue
-                    val cells = rLine.split("|").map { it.trim() }.filter { it.isNotBlank() }
-                    if (cells.isNotEmpty()) {
-                        rows.add(cells)
-                    }
+                for (tIdx in 2 until tableLines.size) { // skip separator row at index 1
+                    val rowCells = tableLines[tIdx].split("|").filter { it.isNotBlank() }.map { it.trim() }
+                    rows.add(rowCells)
                 }
                 elements.add(MarkdownElement.TableBlock(headers = headers, rows = rows))
             }
             continue
         }
 
-        // 3. Headings (#, ##, ###, ####)
-        if (line.startsWith("#")) {
-            val level = line.takeWhile { it == '#' }.length
-            val headingText = line.drop(level).trim()
-            if (level in 1..4 && headingText.isNotBlank()) {
-                elements.add(MarkdownElement.Heading(level = level, text = headingText))
-                i++
-                continue
-            }
-        }
-
-        // 4. Bullet Lists (* , - , + )
-        if (line.trimStart().startsWith("- ") || line.trimStart().startsWith("* ") || line.trimStart().startsWith("+ ")) {
-            val items = mutableListOf<String>()
-            while (i < lines.size && (lines[i].trimStart().startsWith("- ") || lines[i].trimStart().startsWith("* ") || lines[i].trimStart().startsWith("+ "))) {
-                val itemText = lines[i].trimStart().drop(2).trim()
-                items.add(itemText)
-                i++
-            }
-            elements.add(MarkdownElement.BulletList(items))
-            continue
-        }
-
-        // 5. Numbered Lists (1. , 2. )
-        val numMatch = Regex("^\\s*(\\d+)\\.\\s+(.*)").find(line)
-        if (numMatch != null) {
-            val items = mutableListOf<String>()
-            val startIdx = numMatch.groupValues[1].toIntOrNull() ?: 1
-            while (i < lines.size) {
-                val match = Regex("^\\s*(\\d+)\\.\\s+(.*)").find(lines[i]) ?: break
-                items.add(match.groupValues[2].trim())
-                i++
-            }
-            elements.add(MarkdownElement.NumberedList(items = items, startIndex = startIdx))
-            continue
-        }
-
-        // 6. Blockquote (> ...)
-        if (line.trimStart().startsWith(">")) {
+        // Blockquotes: > quote
+        if (line.trim().startsWith(">")) {
             val quoteLines = mutableListOf<String>()
-            while (i < lines.size && lines[i].trimStart().startsWith(">")) {
-                quoteLines.add(lines[i].trimStart().removePrefix(">").trim())
+            while (i < lines.size && lines[i].trim().startsWith(">")) {
+                quoteLines.add(lines[i].trim().removePrefix(">").trim())
                 i++
             }
             elements.add(MarkdownElement.Blockquote(quoteLines.joinToString(" ")))
             continue
         }
 
-        // 7. Regular Paragraph
-        if (line.isNotBlank()) {
-            val paragraphLines = mutableListOf<String>()
-            while (i < lines.size && lines[i].isNotBlank() &&
-                !lines[i].trimStart().startsWith("```") &&
-                !lines[i].trimStart().startsWith("#") &&
-                !lines[i].trimStart().startsWith("- ") &&
-                !lines[i].trimStart().startsWith("* ") &&
-                !lines[i].trimStart().startsWith(">") &&
-                !Regex("^\\s*(\\d+)\\.\\s+").containsMatchIn(lines[i])) {
-                paragraphLines.add(lines[i].trim())
+        // Bullet Lists: *, -, +
+        if (line.trim().startsWith("* ") || line.trim().startsWith("- ") || line.trim().startsWith("+ ")) {
+            val bulletItems = mutableListOf<String>()
+            while (i < lines.size && (lines[i].trim().startsWith("* ") || lines[i].trim().startsWith("- ") || lines[i].trim().startsWith("+ "))) {
+                val itemText = lines[i].trim().drop(2).trim()
+                bulletItems.add(itemText)
                 i++
             }
-            elements.add(MarkdownElement.Paragraph(paragraphLines.joinToString(" ")))
+            elements.add(MarkdownElement.BulletList(items = bulletItems))
             continue
         }
 
-        i++
+        // Numbered Lists: 1. , 2.
+        val numMatch = Regex("""^(\d+)\.\s+(.*)$""").find(line.trim())
+        if (numMatch != null) {
+            val startIndex = numMatch.groupValues[1].toIntOrNull() ?: 1
+            val numItems = mutableListOf<String>()
+            while (i < lines.size) {
+                val m = Regex("""^(\d+)\.\s+(.*)$""").find(lines[i].trim()) ?: break
+                numItems.add(m.groupValues[2].trim())
+                i++
+            }
+            elements.add(MarkdownElement.NumberedList(items = numItems, startIndex = startIndex))
+            continue
+        }
+
+        // Regular Paragraph
+        val paraLines = mutableListOf<String>()
+        while (i < lines.size && lines[i].isNotBlank() &&
+            !lines[i].trim().startsWith("#") &&
+            !lines[i].trim().startsWith("```") &&
+            !lines[i].trim().startsWith("|") &&
+            !lines[i].trim().startsWith(">") &&
+            !lines[i].trim().startsWith("* ") &&
+            !lines[i].trim().startsWith("- ") &&
+            Regex("""^\d+\.\s+""").find(lines[i].trim()) == null
+        ) {
+            paraLines.add(lines[i].trim())
+            i++
+        }
+        if (paraLines.isNotEmpty()) {
+            elements.add(MarkdownElement.Paragraph(text = paraLines.joinToString(" ")))
+        }
     }
 
     return elements
 }
 
-// --- Vector Canvas Icons Helpers ---
+// --- Canvas Drawing Helpers for Markdown Card Elements ---
 
 private fun DrawScope.drawCopyIcon(color: Color) {
-    val stroke = Stroke(width = 1.3.dp.toPx(), cap = StrokeCap.Round)
+    val strokeWidth = 1.5.dp.toPx()
+    val w = size.width
+    val h = size.height
+
+    // Back card
     drawRoundRect(
         color = color,
-        topLeft = Offset(size.width * 0.3f, size.height * 0.15f),
-        size = Size(size.width * 0.6f, size.height * 0.6f),
+        topLeft = Offset(w * 0.28f, h * 0.1f),
+        size = Size(w * 0.58f, h * 0.64f),
         cornerRadius = CornerRadius(2.dp.toPx()),
-        style = stroke
+        style = Stroke(width = strokeWidth)
     )
+
+    // Front card
     drawRoundRect(
         color = color,
-        topLeft = Offset(size.width * 0.12f, size.height * 0.32f),
-        size = Size(size.width * 0.6f, size.height * 0.6f),
+        topLeft = Offset(w * 0.12f, h * 0.26f),
+        size = Size(w * 0.58f, h * 0.64f),
         cornerRadius = CornerRadius(2.dp.toPx()),
-        style = stroke
+        style = Stroke(width = strokeWidth)
     )
 }
 
 private fun DrawScope.drawSparkleStarIcon(color: Color) {
+    val cx = size.width / 2
+    val cy = size.height / 2
+    val r = size.width / 2
+
     val path = Path().apply {
-        val cx = size.width / 2
-        val cy = size.height / 2
-        val r = size.width / 2.2f
         moveTo(cx, cy - r)
-        quadraticTo(cx, cy, cx + r, cy)
-        quadraticTo(cx, cy, cx, cy + r)
-        quadraticTo(cx, cy, cx - r, cy)
-        quadraticTo(cx, cy, cx, cy - r)
+        quadraticBezierTo(cx, cy, cx + r, cy)
+        quadraticBezierTo(cx, cy, cx, cy + r)
+        quadraticBezierTo(cx, cy, cx - r, cy)
+        quadraticBezierTo(cx, cy, cx, cy - r)
         close()
     }
-    drawPath(path = path, color = color)
+    drawPath(path, color = color)
 }
-
-private fun DrawScope.drawLightbulbIcon(color: Color) {
-    val stroke = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
-    drawCircle(
-        color = color,
-        radius = size.width * 0.32f,
-        center = Offset(size.width * 0.5f, size.height * 0.38f),
-        style = stroke
-    )
-    drawLine(
-        color = color,
-        start = Offset(size.width * 0.38f, size.height * 0.72f),
-        end = Offset(size.width * 0.62f, size.height * 0.72f),
-        strokeWidth = 1.5.dp.toPx(),
-        cap = StrokeCap.Round
-    )
-    drawLine(
-        color = color,
-        start = Offset(size.width * 0.42f, size.height * 0.85f),
-        end = Offset(size.width * 0.58f, size.height * 0.85f),
-        strokeWidth = 1.5.dp.toPx(),
-        cap = StrokeCap.Round
-    )
-}
-
-private fun DrawScope.drawDownArrow(color: Color) {
-    val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
-    drawLine(
-        color = color,
-        start = Offset(size.width * 0.5f, size.height * 0.1f),
-        end = Offset(size.width * 0.5f, size.height * 0.85f),
-        strokeWidth = 1.8.dp.toPx(),
-        cap = StrokeCap.Round
-    )
-    val path = Path().apply {
-        moveTo(size.width * 0.25f, size.height * 0.55f)
-        lineTo(size.width * 0.5f, size.height * 0.85f)
-        lineTo(size.width * 0.75f, size.height * 0.55f)
-    }
-    drawPath(path = path, color = color, style = stroke)
-}
-

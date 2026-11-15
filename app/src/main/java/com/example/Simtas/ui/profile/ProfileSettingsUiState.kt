@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.profile
+package com.example.Simtas.ui.profile
 
 import com.example.Simtas.ui.home.HomeBottomTab
 import com.example.Simtas.ui.theme.AppThemeMode
@@ -7,13 +7,13 @@ import com.example.Simtas.ui.theme.AppThemeMode
  * UI State for Profile & Settings Screen following MVVM architecture.
  */
 data class ProfileSettingsUiState(
-    val userName: String = "Alex Morgan",
-    val userEmail: String = "alex.morgan@campus.edu",
-    val userInitials: String = "AM",
-    val courseText: String = "B.Tech · Computer Science",
-    val departmentText: String = "Computer Science & Engineering",
-    val semesterBadgeText: String = "Semester 7",
-    val yearBadgeText: String = "Final year",
+    val userName: String = "",
+    val userEmail: String = "",
+    val userInitials: String = "",
+    val courseText: String = "",
+    val departmentText: String = "",
+    val semesterBadgeText: String = "",
+    val yearBadgeText: String = "",
     val isStudyRemindersEnabled: Boolean = true,
     val isNotesReadyAlertsEnabled: Boolean = true,
     val themeModeText: String = "Light",

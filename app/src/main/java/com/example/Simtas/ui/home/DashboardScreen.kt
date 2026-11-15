@@ -435,8 +435,10 @@ private fun UserGreetingRow(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            val displayName = userName.trim().ifBlank { com.example.Simtas.data.remote.SessionManager.getUserName().trim() }
+            val greeting = if (displayName.isNotBlank()) "Hi, $displayName!" else "Hi there!"
             Text(
-                text = "Hey $userName 👋",
+                text = greeting,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = TextDarkPrimary

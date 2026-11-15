@@ -41,6 +41,21 @@ class CreateSmartNotesViewModel : ViewModel() {
         }
 
         viewModelScope.launch {
+            val existingNote = SessionManager.getLastGeneratedNote()
+            // If already generated with rich lecture intelligence (>= 5 questions and summary), preserve it!
+            if (existingNote != null && existingNote.detectedQuestionsAndAnswers.size >= 5 && existingNote.aiSummaryText.isNotBlank()) {
+                _uiState.update {
+                    it.copy(
+                        currentStepText = "Notes ready!",
+                        progressPercent = 100,
+                        progressStatusText = "All sections organized and ready to review",
+                        isGenerating = false,
+                        isGenerationComplete = true
+                    )
+                }
+                return@launch
+            }
+
             val transcriptionId = SessionManager.getLastTranscriptionId()
             val audioId = SessionManager.getLastUploadedAudioId()
 

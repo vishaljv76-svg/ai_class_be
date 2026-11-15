@@ -17,9 +17,12 @@ import org.junit.Test
  */
 class QaAssistantLiveIntegrationTest {
 
+    private var originalBaseUrl: String = ""
+
     @Before
     fun setUp() {
-        // Point to the live backend URL configured in ApiConfig
+        originalBaseUrl = ApiConfig.BASE_URL
+        ApiConfig.BASE_URL = "http://127.0.0.1/ai_class_bebackend/"
         // Set up valid authenticated user session (User 2 - Alex Morgan)
         SessionManager.saveSession(
             context = null,
@@ -28,6 +31,13 @@ class QaAssistantLiveIntegrationTest {
             name = "Alex Morgan",
             email = "alex.morgan@campus.edu"
         )
+    }
+
+    @org.junit.After
+    fun tearDown() {
+        if (originalBaseUrl.isNotBlank()) {
+            ApiConfig.BASE_URL = originalBaseUrl
+        }
     }
 
     @Test

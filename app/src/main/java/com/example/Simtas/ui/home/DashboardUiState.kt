@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.home
+package com.example.Simtas.ui.home
 
 enum class RecentNoteIconType {
     Database,
@@ -24,9 +24,9 @@ enum class HomeBottomTab {
  * UI State for the Home Dashboard Screen following MVVM architecture.
  */
 data class DashboardUiState(
-    val userName: String = "Alex",
+    val userName: String = "",
     val dateText: String = "Wednesday, 21 October",
-    val userInitials: String = "AM",
+    val userInitials: String = "",
     val totalNotes: Int = 24,
     val subjectsCount: Int = 2,
     val quizzesCount: Int = 8,

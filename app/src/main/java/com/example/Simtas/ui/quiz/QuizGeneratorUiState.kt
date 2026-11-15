@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.quiz
+package com.example.Simtas.ui.quiz
 
 enum class QuestionType {
     MCQ,
@@ -16,13 +16,19 @@ enum class DifficultyLevel {
  * UI State for AI Quiz Generator Screen following MVVM architecture.
  */
 data class QuizGeneratorUiState(
-    val selectedSubject: String = "Computer Science - CS301",
-    val subjectOptions: List<String> = listOf("Computer Science - CS301", "Mathematics - MATH201", "Physics - PHYS101"),
-    val lectureTitle: String = "Database Normalization",
-    val lectureMetadata: String = "21 Oct 2026 · Prof. Sarah Chen",
+    val selectedSubject: String = "All Saved My Notes",
+    val subjectOptions: List<String> = listOf("All Saved My Notes"),
+    val lectureTitle: String = "All My Notes",
+    val lectureMetadata: String = "Comprehensive quiz based on your saved notes",
     val numberOfQuestions: Int = 5,
     val questionType: QuestionType = QuestionType.MCQ,
     val difficulty: DifficultyLevel = DifficultyLevel.MODERATE,
     val estimatedTimeText: String = "5 multiple-choice questions · About 5 min",
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val savedNotes: List<com.example.Simtas.ui.mynotes.NoteListItem> = emptyList(),
+    val selectedNoteIndex: Int = 0,
+    val selectedNoteId: Int? = null,
+    val selectedNoteKey: String? = null,
+    val isMyNotesEmpty: Boolean = false,
+    val errorMessage: String? = null
 )

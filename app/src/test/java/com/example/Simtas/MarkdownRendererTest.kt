@@ -163,5 +163,35 @@ class MarkdownRendererTest {
         assertFalse("Must strip dollar signs", text.contains("$"))
         assertEquals("Einstein formulated E = mc^2 in relativity.", text)
     }
+
+    @Test
+    fun testMarkdownLinks_parsedAndAnnotatedWithUrl() {
+        val annotated = buildInlineAnnotatedString(
+            "Explore [GeeksforGeeks](https://www.geeksforgeeks.org) for DSA tutorials.",
+            isDark = false
+        )
+        val text = annotated.text
+        assertFalse("Must strip square brackets", text.contains("[") || text.contains("]"))
+        assertFalse("Must strip parentheses around url", text.contains("(") || text.contains(")"))
+        assertEquals("Explore GeeksforGeeks for DSA tutorials.", text)
+
+        val annotations = annotated.getStringAnnotations("URL", 0, annotated.length)
+        assertEquals(1, annotations.size)
+        assertEquals("https://www.geeksforgeeks.org", annotations[0].item)
+    }
+
+    @Test
+    fun testBareUrl_parsedAndAnnotatedWithUrl() {
+        val annotated = buildInlineAnnotatedString(
+            "Documentation available at https://kotlinlang.org/docs for reference.",
+            isDark = false
+        )
+        val text = annotated.text
+        assertTrue("Must contain full URL in text", text.contains("https://kotlinlang.org/docs"))
+
+        val annotations = annotated.getStringAnnotations("URL", 0, annotated.length)
+        assertEquals(1, annotations.size)
+        assertEquals("https://kotlinlang.org/docs", annotations[0].item)
+    }
 }
 

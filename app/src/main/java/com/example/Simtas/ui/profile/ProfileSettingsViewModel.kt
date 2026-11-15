@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.profile
+package com.example.Simtas.ui.profile
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -35,8 +35,19 @@ class ProfileSettingsViewModel : ViewModel() {
 
     init {
         val currentMode = ThemeManager.currentThemeMode
+        val currentUserId = SessionManager.getUserId()
+        val cached = SessionManager.getUserProfile(currentUserId)
+        val initialName = cached?.get("name") ?: SessionManager.getUserName()
+        val initialEmail = cached?.get("email") ?: SessionManager.getUserEmail()
         _uiState.update {
             it.copy(
+                userName = initialName,
+                userEmail = initialEmail,
+                userInitials = SessionManager.computeInitials(initialName),
+                courseText = cached?.get("course") ?: "",
+                departmentText = cached?.get("department") ?: "",
+                semesterBadgeText = cached?.get("semester_badge") ?: "",
+                yearBadgeText = cached?.get("year_badge") ?: "",
                 selectedThemeMode = currentMode,
                 themeModeText = currentMode.displayName
             )
@@ -45,8 +56,12 @@ class ProfileSettingsViewModel : ViewModel() {
     }
 
     fun loadProfile(context: Context? = null) {
+        val requestUserId = SessionManager.getUserId()
+        val requestToken = SessionManager.getToken()
+        if (requestUserId <= 0) return
+
         // Load locally cached photo first for instant display
-        val localPath = SessionManager.getProfilePhotoPath()
+        val localPath = SessionManager.getProfilePhotoPath(requestUserId)
         if (!localPath.isNullOrEmpty()) {
             val file = File(localPath)
             if (file.exists()) {
@@ -61,7 +76,24 @@ class ProfileSettingsViewModel : ViewModel() {
 
         viewModelScope.launch {
             val profile = ProfileRepository.fetchProfile()
+            // Strictly guard against stale responses overwriting currently authenticated user identity
+            if (SessionManager.getUserId() != requestUserId || SessionManager.getToken() != requestToken) {
+                return@launch
+            }
+
             if (profile != null) {
+                SessionManager.saveUserProfile(
+                    context = context,
+                    userId = requestUserId,
+                    course = profile.courseText,
+                    department = profile.departmentText,
+                    semesterBadge = profile.semesterBadgeText,
+                    yearBadge = profile.yearBadgeText,
+                    name = profile.userName,
+                    email = profile.userEmail,
+                    photoPath = profile.profileImage
+                )
+
                 _uiState.update { current ->
                     current.copy(
                         userName = profile.userName,
@@ -94,15 +126,17 @@ class ProfileSettingsViewModel : ViewModel() {
                                 val remoteBitmap = BitmapFactory.decodeStream(conn.inputStream)
                                 conn.disconnect()
                                 if (remoteBitmap != null) {
-                                    _uiState.update { it.copy(profilePhotoBitmap = remoteBitmap) }
+                                    if (SessionManager.getUserId() == requestUserId) {
+                                        _uiState.update { it.copy(profilePhotoBitmap = remoteBitmap) }
+                                    }
                                     if (context != null) {
                                         val profileDir = File(context.filesDir, "profile_photos")
                                         if (!profileDir.exists()) profileDir.mkdirs()
-                                        val file = File(profileDir, "profile_${SessionManager.getUserId()}.jpg")
+                                        val file = File(profileDir, "profile_${requestUserId}.jpg")
                                         FileOutputStream(file).use { out ->
                                             remoteBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
                                         }
-                                        SessionManager.saveProfilePhotoPath(context, file.absolutePath)
+                                        SessionManager.saveProfilePhotoPath(context, file.absolutePath, userId = requestUserId)
                                     }
                                 }
                             }
@@ -117,7 +151,7 @@ class ProfileSettingsViewModel : ViewModel() {
                     current.copy(
                         userName = name,
                         userEmail = email,
-                        userInitials = computeInitials(name)
+                        userInitials = SessionManager.computeInitials(name)
                     )
                 }
             }
@@ -150,11 +184,12 @@ class ProfileSettingsViewModel : ViewModel() {
                 withContext(Dispatchers.IO) {
                     val profileDir = File(context.filesDir, "profile_photos")
                     if (!profileDir.exists()) profileDir.mkdirs()
-                    val file = File(profileDir, "profile_${SessionManager.getUserId()}.jpg")
+                    val uId = SessionManager.getUserId()
+                    val file = File(profileDir, "profile_${uId}.jpg")
                     FileOutputStream(file).use { out ->
                         bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
                     }
-                    SessionManager.saveProfilePhotoPath(context, file.absolutePath)
+                    SessionManager.saveProfilePhotoPath(context, file.absolutePath, userId = uId)
                 }
 
                 // 3. Sync to backend MySQL asynchronously

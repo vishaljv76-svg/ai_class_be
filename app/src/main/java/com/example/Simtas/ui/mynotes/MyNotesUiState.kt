@@ -1,4 +1,5 @@
-﻿package com.example.Simtas.ui.mynotes
+
+package com.example.Simtas.ui.mynotes
 
 import com.example.Simtas.ui.home.HomeBottomTab
 import com.example.Simtas.ui.home.RecentNoteIconType
@@ -9,8 +10,12 @@ data class NoteListItem(
     val subject: String,
     val dateText: String,
     val durationText: String,
+
+
     val readTimeText: String,
-    val iconType: RecentNoteIconType
+    val iconType: RecentNoteIconType,
+    val summary: String = "",
+    val tag: String = "AI notes"
 )
 
 /**

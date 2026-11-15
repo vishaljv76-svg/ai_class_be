@@ -1,7 +1,8 @@
-﻿package com.example.Simtas.ui.home
+package com.example.Simtas.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.Simtas.data.remote.SessionManager
 import com.example.Simtas.data.repository.DashboardRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +15,13 @@ import kotlinx.coroutines.launch
  */
 class DashboardViewModel : ViewModel() {
 
-    private val _uiState = MutableStateFlow(DashboardUiState())
+    private val initialName = SessionManager.getUserName()
+    private val _uiState = MutableStateFlow(
+        DashboardUiState(
+            userName = initialName,
+            userInitials = SessionManager.computeInitials(initialName)
+        )
+    )
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
     init {
@@ -22,15 +29,30 @@ class DashboardViewModel : ViewModel() {
     }
 
     fun loadDashboardData() {
-        _uiState.update { it.copy(isLoading = true) }
+        val requestUserId = SessionManager.getUserId()
+        val requestToken = SessionManager.getToken()
+        val currentName = SessionManager.getUserName()
+        _uiState.update { 
+            it.copy(
+                userName = if (it.userName.isBlank()) currentName else it.userName,
+                userInitials = if (it.userInitials.isBlank()) SessionManager.computeInitials(currentName) else it.userInitials,
+                isLoading = true 
+            ) 
+        }
         viewModelScope.launch {
             val data = DashboardRepository.getDashboardData()
+            // Discard stale response if user switched during async call
+            if (SessionManager.getUserId() != requestUserId || SessionManager.getToken() != requestToken) {
+                return@launch
+            }
             if (data != null) {
+                val resolvedName = if (data.userName.isNotBlank()) data.userName else SessionManager.getUserName()
+                val resolvedInitials = if (data.userInitials.isNotBlank()) data.userInitials else SessionManager.computeInitials(resolvedName)
                 _uiState.update { current ->
                     current.copy(
-                        userName = data.userName,
+                        userName = resolvedName,
                         dateText = data.dateText,
-                        userInitials = data.userInitials,
+                        userInitials = resolvedInitials,
                         totalNotes = data.totalNotes,
                         subjectsCount = data.subjectsCount,
                         quizzesCount = data.quizzesCount,

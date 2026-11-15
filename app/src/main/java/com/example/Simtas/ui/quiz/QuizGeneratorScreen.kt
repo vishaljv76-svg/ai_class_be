@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.quiz
+package com.example.Simtas.ui.quiz
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -79,8 +79,7 @@ fun QuizGeneratorScreen(
         onQuestionTypeSelect = viewModel::onQuestionTypeSelected,
         onDifficultySelect = viewModel::onDifficultySelected,
         onGenerateQuizClick = {
-            viewModel.onGenerateQuizClicked()
-            onGenerateQuizClick()
+            viewModel.onGenerateQuizClicked(onQuizReady = onGenerateQuizClick)
         }
     )
 }
@@ -138,6 +137,24 @@ fun QuizGeneratorScreenContent(
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
+
+                if (uiState.isMyNotesEmpty) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFFFFF3CD))
+                            .padding(14.dp)
+                    ) {
+                        Text(
+                            text = "💡 No study notes saved yet. Ask questions in AI Study Copilot or record a lecture first to generate your custom AI quiz!",
+                            fontSize = 12.sp,
+                            color = Color(0xFF856404),
+                            lineHeight = 16.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
 
                 // Based On Your Lecture Card
                 BasedOnLectureCard(
@@ -270,13 +287,19 @@ fun QuizGeneratorScreenContent(
 
                 // Generate Quiz CTA Button
                 Button(
-                    onClick = onGenerateQuizClick,
+                    onClick = {
+                        if (!uiState.isMyNotesEmpty) {
+                            onGenerateQuizClick()
+                        }
+                    },
+                    enabled = !uiState.isMyNotesEmpty && !uiState.isLoading,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(54.dp),
                     shape = RoundedCornerShape(27.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = PurplePrimary
+                        containerColor = if (uiState.isMyNotesEmpty) Color.LightGray else PurplePrimary,
+                        disabledContainerColor = Color(0xFFD1D5DB)
                     ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
                 ) {
@@ -289,7 +312,7 @@ fun QuizGeneratorScreenContent(
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Generate Quiz",
+                            text = if (uiState.isLoading) "Generating Quiz..." else if (uiState.isMyNotesEmpty) "Add Notes to Generate Quiz" else "Generate Quiz",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White

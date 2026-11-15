@@ -127,6 +127,23 @@ fun LecturePreviewScreen(
         }
     }
 
+    val handleFollowUpMicClick = {
+        if (uiState.isFollowUpListening) {
+            viewModel.stopFollowUpVoiceInput(context)
+        } else {
+            val hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (hasPermission) {
+                viewModel.startFollowUpVoiceInput(context)
+            } else {
+                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+    }
+
     LecturePreviewScreenContent(
         uiState = uiState,
         modifier = modifier,
@@ -147,8 +164,10 @@ fun LecturePreviewScreen(
         onLanguageSelect = viewModel::onLanguageSelected,
         onTranscribeAudioClick = { viewModel.transcribeLoadedAudio(context) },
         onFollowUpQuestionChange = viewModel::onFollowUpQuestionChanged,
-        onAskFollowUpQuestion = viewModel::askFollowUpQuestion,
+        onAskFollowUpQuestion = { viewModel.askFollowUpQuestion() },
+        onFollowUpMicClick = handleFollowUpMicClick,
         onRetryTranscriptionClick = { viewModel.retryTranscription(context) },
+        onRetryAnalysisClick = { viewModel.retryLectureAnalysis(context) },
         onGenerateTranscriptClick = {
             if (viewModel.onGenerateTranscriptClicked()) {
                 onGenerateTranscriptClick()
@@ -176,7 +195,9 @@ fun LecturePreviewScreenContent(
     onTranscribeAudioClick: () -> Unit = {},
     onFollowUpQuestionChange: (String) -> Unit = {},
     onAskFollowUpQuestion: () -> Unit = {},
+    onFollowUpMicClick: () -> Unit = {},
     onRetryTranscriptionClick: () -> Unit = {},
+    onRetryAnalysisClick: () -> Unit = {},
     onGenerateTranscriptClick: () -> Unit = {}
 ) {
     Surface(
@@ -331,6 +352,16 @@ fun LecturePreviewScreenContent(
                     }
                 }
 
+                // AI Intelligence Analysis Retry Notice (when Gemini failed and offline notes are used)
+                if (uiState.canRetryAnalysis) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    AnalysisRetryCard(
+                        errorMessage = uiState.analysisErrorMessage,
+                        onRetryClick = onRetryAnalysisClick,
+                        isTamil = uiState.selectedLanguageCode == "ta"
+                    )
+                }
+
                 // 1. Teacher's Explanation Card
                 if (uiState.teacherExplanation.isNotBlank()) {
                     Spacer(modifier = Modifier.height(18.dp))
@@ -375,6 +406,9 @@ fun LecturePreviewScreenContent(
                         questionText = uiState.followUpQuestionText,
                         onQuestionChange = onFollowUpQuestionChange,
                         onAskClick = onAskFollowUpQuestion,
+                        onMicClick = onFollowUpMicClick,
+                        isListening = uiState.isFollowUpListening,
+                        isAsking = uiState.isAskingFollowUp,
                         qaList = uiState.followUpQaList,
                         isTamil = uiState.selectedLanguageCode == "ta"
                     )
@@ -776,6 +810,7 @@ private fun VoiceAndTextInputCard(
 
 /**
  * Related Answer Card for Detected Questions on Screen 2 with explicit Source & Status badges.
+ * Displays each question and its complete, detailed answer in a separate, readable card.
  */
 @Composable
 private fun RelatedAnswerItemCard(item: com.example.Simtas.ui.notes.DetectedQuestionAnswerItem) {
@@ -786,91 +821,135 @@ private fun RelatedAnswerItemCard(item: com.example.Simtas.ui.notes.DetectedQues
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
-            .padding(14.dp)
+            .padding(16.dp)
     ) {
         Column {
+            // Question Row with Q badge and Source Tag
             Row(
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = "Q: ${item.question}",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextDarkPrimary,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.Top
                 ) {
-                    val sourceBg = when {
-                        isFromLecture -> Color(0xFFEEF2FF)
-                        isCalculated -> Color(0xFFE0F2FE)
-                        isSupplemental -> Color(0xFFFEF3C7)
-                        else -> InnerCircleBg
-                    }
-                    val sourceColor = when {
-                        isFromLecture -> Color(0xFF4338CA)
-                        isCalculated -> Color(0xFF0284C7)
-                        isSupplemental -> Color(0xFFB45309)
-                        else -> PurplePrimary
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(sourceBg)
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = item.source,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = sourceColor
-                        )
-                    }
-
                     Box(
                         modifier = Modifier
                             .clip(CircleShape)
-                            .background(if (item.isAnswered) InnerCircleBg else Color(0xFFFEE2E2))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .background(PurplePrimary)
+                            .padding(horizontal = 7.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = item.status,
-                            fontSize = 9.sp,
+                            text = "Q",
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (item.isAnswered) PurplePrimary else Color(0xFFDC2626)
+                            color = Color.White
                         )
                     }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = item.question,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextDarkPrimary,
+                        lineHeight = 19.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                val sourceBg = when {
+                    isFromLecture -> Color(0xFFEEF2FF)
+                    isCalculated -> Color(0xFFE0F2FE)
+                    isSupplemental -> Color(0xFFFEF3C7)
+                    else -> InnerCircleBg
+                }
+                val sourceColor = when {
+                    isFromLecture -> Color(0xFF4338CA)
+                    isCalculated -> Color(0xFF0284C7)
+                    isSupplemental -> Color(0xFFB45309)
+                    else -> PurplePrimary
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(sourceBg)
+                        .padding(horizontal = 7.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = item.source,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = sourceColor
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
+            // Answer Header & Status
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(InnerCircleBg)
+                        .padding(horizontal = 7.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "Answer",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PurplePrimary
+                    )
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(if (item.isAnswered) Color(0xFFECFDF5) else Color(0xFFFEE2E2))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = item.status,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (item.isAnswered) Color(0xFF059669) else Color(0xFFDC2626)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Complete, detailed student-friendly answer
             Text(
                 text = item.answer,
-                fontSize = if (item.answer.length <= 4) 20.sp else 13.sp,
-                fontWeight = if (item.answer.length <= 4) FontWeight.Bold else FontWeight.Normal,
-                color = if (item.isAnswered) (if (isFromLecture) PurplePrimary else TextDarkPrimary) else TextMuted,
-                lineHeight = 18.sp
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Normal,
+                color = TextDarkPrimary,
+                lineHeight = 20.sp
             )
 
+            // Optional note or explanation
             if (item.explanation.isNotBlank() && item.explanation != item.answer) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = item.explanation,
-                    fontSize = 11.sp,
-                    color = TextMuted,
-                    lineHeight = 16.sp
-                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.Top) {
+                    Text(
+                        text = "• ",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PurplePrimary
+                    )
+                    Text(
+                        text = item.explanation,
+                        fontSize = 11.sp,
+                        color = TextMuted,
+                        lineHeight = 16.sp
+                    )
+                }
             }
         }
     }
@@ -934,6 +1013,74 @@ private fun TranscriptionRetryCard(
             ) {
                 Text(
                     text = if (isTamil) "மீண்டும் படியெடுக்க (Retry Transcription)" else "Retry Transcription with Offline Whisper",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnalysisRetryCard(
+    errorMessage: String?,
+    onRetryClick: () -> Unit,
+    isTamil: Boolean
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFFFFFBEB))
+            .padding(16.dp)
+    ) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFF59E0B)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "!",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = if (isTamil) "AI பகுப்பாய்வு பிழை (ஆஃப்லைன் குறிப்புகள் பயன்படுத்தப்படுகின்றன)" else "AI Analysis Notice",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF92400E)
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = errorMessage ?: if (isTamil) {
+                    "ஸ்மார்ட்நோட்ஸ் AI பகுப்பாய்வை இணைக்க முடியவில்லை. ஆஃப்லைன் உரை குறிப்புகள் காட்டப்படுகின்றன. மீண்டும் முயற்சிக்க தட்டவும்."
+                } else {
+                    "Cloud AI lecture analysis could not be completed. Offline lecture notes are shown. Tap below to retry AI analysis."
+                },
+                fontSize = 12.sp,
+                color = Color(0xFF78350F),
+                lineHeight = 16.sp
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = onRetryClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
+            ) {
+                Text(
+                    text = if (isTamil) "AI பகுப்பாய்வை மீண்டும் முயற்சிக்கவும்" else "Retry AI Analysis",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -1222,9 +1369,23 @@ private fun AskFollowUpQuestionCard(
     questionText: String,
     onQuestionChange: (String) -> Unit,
     onAskClick: () -> Unit,
+    onMicClick: () -> Unit = {},
+    isListening: Boolean = false,
+    isAsking: Boolean = false,
     qaList: List<com.example.Simtas.ui.notes.DetectedQuestionAnswerItem>,
     isTamil: Boolean
 ) {
+    val infiniteTransition = rememberInfiniteTransition(label = "followUpMicPulse")
+    val micScale by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = if (isListening) 1.15f else 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "followUpPulseScale"
+    )
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1272,9 +1433,13 @@ private fun AskFollowUpQuestionCard(
                     .height(52.dp),
                 placeholder = {
                     Text(
-                        text = if (isTamil) "எ.கா: இயல்பாக்கம் என்றால் என்ன?" else "e.g., What did the teacher say about 2NF?",
+                        text = if (isListening) {
+                            if (isTamil) "பேசுங்கள்... கேட்கிறது" else "Listening... speak now"
+                        } else {
+                            if (isTamil) "எ.கா: இயல்பாக்கம் என்றால் என்ன?" else "e.g., What did the teacher say about 2NF?"
+                        },
                         fontSize = 12.sp,
-                        color = TextMuted
+                        color = if (isListening) Color(0xFFDC2626) else TextMuted
                     )
                 },
                 shape = RoundedCornerShape(14.dp),
@@ -1289,20 +1454,50 @@ private fun AskFollowUpQuestionCard(
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+
+            // Microphone button to speak questions
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .scale(micScale)
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(if (isListening) Color(0xFFDC2626) else PlayerCardBg)
+                    .clickable { onMicClick() }
+            ) {
+                Canvas(modifier = Modifier.size(20.dp)) {
+                    if (isListening) {
+                        drawSquareStopIcon(Color.White)
+                    } else {
+                        drawMicIcon(PurplePrimary)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(6.dp))
 
             Button(
                 onClick = onAskClick,
                 modifier = Modifier.height(52.dp),
                 shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary)
+                colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary),
+                enabled = !isAsking
             ) {
-                Text(
-                    text = if (isTamil) "கேள்" else "Ask",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+                if (isAsking) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = if (isTamil) "கேள்" else "Ask",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
             }
         }
 

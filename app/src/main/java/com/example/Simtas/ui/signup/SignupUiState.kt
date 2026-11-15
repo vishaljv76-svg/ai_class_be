@@ -1,13 +1,13 @@
-﻿package com.example.Simtas.ui.signup
+package com.example.Simtas.ui.signup
 
 /**
  * UI State for the Create Account (Sign Up) Screen following MVVM architecture.
  */
 data class SignupUiState(
-    val studentName: String = "Alex Morgan",
-    val email: String = "alex.morgan@campus.edu",
-    val password: String = "••••••••••••",
-    val confirmPassword: String = "••••••••••••",
+    val studentName: String = "",
+    val email: String = "",
+    val password: String = "",
+    val confirmPassword: String = "",
     val isPasswordVisible: Boolean = false,
     val isConfirmPasswordVisible: Boolean = false,
     val isPasswordValid: Boolean = true,

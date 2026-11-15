@@ -48,6 +48,17 @@ object LectureNotesGenerator {
         "today", "well", "um", "uh", "like", "okay", "alright", "yeah"
     )
 
+    private val CONVERSATIONAL_EXCLUSIONS = setOf(
+        "students", "student", "today", "tomorrow", "yesterday", "teacher", "professor",
+        "class", "classes", "everyone", "anybody", "somebody", "nobody", "guys", "morning",
+        "afternoon", "evening", "hello", "hi", "welcome", "alright", "okay", "please",
+        "lecture", "topic", "session", "lesson", "example", "examples", "thing", "things",
+        "something", "anything", "nothing", "here", "there", "now", "well", "yes", "no",
+        "good", "great", "fine", "thanks", "thank", "people", "start", "discuss", "explain",
+        "வணக்கம்", "மாணவர்கள்", "மாணவர்களே", "இன்று", "நாளை", "நேற்று", 
+        "ஆசிரியர்", "வகுப்பு", "பாடம்", "அனைவருக்கும்", "நன்றி", "நாம்", "நீங்கள்"
+    )
+
     private val IMPORTANCE_KEYWORDS = setOf(
         "important", "key", "remember", "definition", "means", "specifically", "fundamental",
         "concept", "primary", "essential", "crucial", "conclusion", "result", "consequence",
@@ -274,7 +285,8 @@ object LectureNotesGenerator {
             val match = defRegex.find(sentence)
             if (match != null) {
                 val term = match.groupValues[1].trim()
-                if (term.isNotBlank() && term.lowercase(Locale.ROOT) !in STOP_WORDS && term !in detectedTerms) {
+                val lowerTerm = term.lowercase(Locale.ROOT)
+                if (term.isNotBlank() && lowerTerm !in STOP_WORDS && lowerTerm !in CONVERSATIONAL_EXCLUSIONS && term !in detectedTerms) {
                     detectedTerms.add(term)
                     definitionSentences.add(sentence)
                 }
@@ -283,14 +295,20 @@ object LectureNotesGenerator {
 
         // If no explicit definitions found, take top salient words or resolved title words
         if (detectedTerms.isEmpty()) {
-            val titleWords = resolvedTitle.split(" ").filter { it.length > 2 && it.lowercase(Locale.ROOT) !in STOP_WORDS }
+            val titleWords = resolvedTitle.split(" ").filter { 
+                it.length > 2 && it.lowercase(Locale.ROOT) !in STOP_WORDS && it.lowercase(Locale.ROOT) !in CONVERSATIONAL_EXCLUSIONS 
+            }
             detectedTerms.addAll(titleWords)
 
             val topWords = wordFreq.entries
                 .sortedByDescending { it.value }
-                .take(4)
+                .take(6)
                 .map { it.key.replaceFirstChar { c -> c.titlecase(Locale.ROOT) } }
-                .filter { it !in detectedTerms }
+                .filter { 
+                    it.lowercase(Locale.ROOT) !in CONVERSATIONAL_EXCLUSIONS && 
+                    it.lowercase(Locale.ROOT) !in STOP_WORDS && 
+                    it !in detectedTerms 
+                }
             detectedTerms.addAll(topWords)
         }
 
@@ -593,9 +611,14 @@ object LectureNotesGenerator {
         if (trimmed.equals("Recorded Lecture Notes", ignoreCase = true)) return true
         if (trimmed.equals("New Lecture", ignoreCase = true)) return true
         if (trimmed.equals("New Lecture Recording", ignoreCase = true)) return true
+        if (trimmed.startsWith("voice_record", ignoreCase = true) ||
+            trimmed.startsWith("voice_input", ignoreCase = true) ||
+            trimmed.startsWith("recording", ignoreCase = true) ||
+            trimmed.startsWith("audio_", ignoreCase = true)
+        ) return true
 
-        // If the title is "Database Normalization" but the transcript has nothing to do with databases/normalization
-        if (trimmed.equals("Database Normalization", ignoreCase = true) && !isTopicAboutDatabaseNormalization(transcriptText)) {
+        // If the title is "Database Normalization" or Tamil variant but the transcript has nothing to do with databases/normalization
+        if ((trimmed.contains("Database Normalization", ignoreCase = true) || trimmed.contains("தரவுத்தள இயல்பாக்கம்")) && !isTopicAboutDatabaseNormalization(transcriptText)) {
             return true
         }
 
@@ -608,6 +631,7 @@ object LectureNotesGenerator {
     fun isTopicAboutDatabaseNormalization(text: String): Boolean {
         val lower = text.lowercase(Locale.ROOT)
         return lower.contains("normalization") ||
+            lower.contains("தரவுத்தள இயல்பாக்கம்") ||
             lower.contains("relational database") ||
             lower.contains("normal form") ||
             lower.contains("functional dependency") ||
@@ -634,12 +658,55 @@ object LectureNotesGenerator {
             return "SmartNotes AI Assistant"
         }
 
-        val firstLine = trimmed.split("\n")[0].trim()
+        // 1. Strip leading conversational greetings so topic detection operates on the actual lecture introduction
+        val cleanTranscript = trimmed.replace(
+            Regex("""(?i)^(?:(?:good\s+(?:morning|afternoon|evening)|hello|hi|welcome|greetings|vanakkam|வணக்கம்)(?:\s+(?:to\s+everyone|everyone|all|class|students|guys|மாணவர்களே|அனைவருக்கும்))?[,.\-! ]+)+"""),
+            ""
+        ).trim()
+        val textToInspect = if (cleanTranscript.isNotBlank()) cleanTranscript else trimmed
+        val lowerText = textToInspect.lowercase(Locale.ROOT)
+
+        // 2. Check English and Tamil introductory topic announcement patterns across the introductory text
+        // Matches e.g.:
+        // - "today we are going to see about data structures"
+        // - "today we will discuss data structures"
+        // - "today's class is about data structures"
+        // - "let us look at data structures"
+        val introRegex = Regex("""(?i)(?:today(?:\s+(?:we(?:\s+are\s+going\s+to|\s+will|\s+'ll)?\s+)?(?:see\s+about|learn\s+about|discuss|cover|examine|talk\s+about|explore|study|focus\s+on))|topic\s+(?:of\s+this\s+lecture\s+|for\s+today\s+)?is|lecture\s+(?:is\s+)?about|class\s+(?:is\s+)?on|welcome\s+to|let\s+(?:us|'s)\s+(?:see\s+about|learn\s+about|discuss|look\s+at))\s+([a-zA-Z0-9\s]{3,40})""")
+        val match = introRegex.find(textToInspect)
+        if (match != null) {
+            val topic = match.groupValues[1].trim().trimEnd('.', ',', ';', '!')
+            if (topic.isNotBlank() && !isConversationalFiller(topic)) {
+                return capitalizeWords(topic)
+            }
+        }
+
+        // 3. Tamil introductory announcement patterns
+        // e.g. "இன்று நாம் தரவு அமைப்புகள் பற்றி பார்க்க போகிறோம்" / "இன்றைய பாடம் தரவு அமைப்புகள்"
+        val tamilIntroRegex = Regex("""(?i)(?:இன்று\s+நாம்\s+|இன்றைய\s+பாடம்\s+|இன்றைய\s+வகுப்பு\s+)([A-Za-z0-9\u0B80-\u0BFF\s]{2,40}?)\s*(?:பற்றி|குறித்த|ஆகும்|காண்போம்|பார்க்க)""")
+        val tamilMatch = tamilIntroRegex.find(textToInspect)
+        if (tamilMatch != null) {
+            val topic = tamilMatch.groupValues[1].trim().trimEnd('.', ',', ';', '!')
+            if (topic.isNotBlank()) {
+                return topic
+            }
+        }
+
+        // 4. Domain academic keywords matching:
+        if (lowerText.contains("data structure") || lowerText.contains("data structures")) return "Data Structures"
+        if (lowerText.contains("தரவு அமைப்பு") || lowerText.contains("தரவு கட்டமைப்பு")) return "தரவு அமைப்புகள் (Data Structures)"
+        if (isTopicAboutDatabaseNormalization(lowerText)) return "Database Normalization"
+        if (lowerText.contains("தரவுத்தள இயல்பாக்கம்")) return "தரவுத்தள இயல்பாக்கம் (Database Normalization)"
+        if (lowerText.contains("relational database") || lowerText.contains("sql query") || lowerText.contains("rdbms")) return "Relational Databases"
+        if (lowerText.contains("operating system") || lowerText.contains("deadlock") || lowerText.contains("virtual memory") || lowerText.contains("process scheduling")) return "Operating Systems"
+        if (lowerText.contains("computer network") || lowerText.contains("osi model") || lowerText.contains("tcp/ip")) return "Computer Networks"
+        if (lowerText.contains("photosynthesis")) return "Photosynthesis"
+        if (lowerText.contains("quicksort") || lowerText.contains("binary search") || lowerText.contains("bubble sort")) return "Algorithms"
+
+        val firstLine = textToInspect.split("\n")[0].trim()
         val firstSentence = firstLine.split(Regex("""(?<=[.!?])\s+"""))[0].trim()
 
         // Directive or question prompt pattern:
-        // e.g. "Name, some domestic and wild animals." -> "Domestic and Wild Animals"
-        // "What is database normalization?" -> "Database Normalization"
         val strippedDirective = firstSentence.lowercase(Locale.ROOT)
             .replace("?", "")
             .replace(".", "")
@@ -649,18 +716,8 @@ object LectureNotesGenerator {
             .replace(Regex("""\s+"""), " ")
             .trim()
 
-        if (strippedDirective.isNotBlank() && strippedDirective.length in 3..50 && strippedDirective != firstSentence.lowercase(Locale.ROOT)) {
+        if (strippedDirective.isNotBlank() && strippedDirective.length in 3..50 && strippedDirective != firstSentence.lowercase(Locale.ROOT) && !isConversationalFiller(strippedDirective)) {
             return capitalizeWords(strippedDirective)
-        }
-
-        // Pattern: "Today we will discuss X" / "This lecture covers X"
-        val introRegex = Regex("""(?i)(?:today\s+(?:we(?:'ll|\s+will)?\s+)?(?:discuss|talk about|cover|examine|learn about)|topic\s+(?:of\s+this\s+lecture\s+)?is|lecture\s+(?:is\s+)?about)\s+([a-zA-Z0-9\s]{3,40})""")
-        val match = introRegex.find(firstSentence)
-        if (match != null) {
-            val topic = match.groupValues[1].trim().trimEnd('.', ',', ';')
-            if (topic.isNotBlank()) {
-                return capitalizeWords(topic)
-            }
         }
 
         // Pattern: "X is defined as Y" or "X is the process of Y"
@@ -668,21 +725,34 @@ object LectureNotesGenerator {
         val defMatch = defRegex.find(firstSentence)
         if (defMatch != null) {
             val topic = defMatch.groupValues[1].trim()
-            if (topic.isNotBlank()) {
+            if (topic.isNotBlank() && !isConversationalFiller(topic)) {
                 return capitalizeWords(topic)
             }
         }
 
-        // Fallback: take top salient words
+        // Fallback: take top salient non-conversational words
         val words = firstSentence.replace(Regex("""[^a-zA-Z0-9\s]"""), " ")
             .split("\\s+".toRegex())
-            .filter { it.length > 2 && it.lowercase(Locale.ROOT) !in STOP_WORDS }
+            .filter { it.length > 2 && it.lowercase(Locale.ROOT) !in STOP_WORDS && it.lowercase(Locale.ROOT) !in CONVERSATIONAL_EXCLUSIONS }
         if (words.isNotEmpty()) {
-            val candidate = words.take(4).joinToString(" ")
-            return capitalizeWords(candidate)
+            val candidate = words.take(3).joinToString(" ")
+            if (!isConversationalFiller(candidate)) {
+                return capitalizeWords(candidate)
+            }
         }
 
         return "Recorded Lecture Notes"
+    }
+
+    fun isConversationalFiller(text: String): Boolean {
+        val lower = text.lowercase(Locale.ROOT).trim()
+        if (lower in CONVERSATIONAL_EXCLUSIONS) return true
+        val fillerPhrases = setOf(
+            "today we are", "we are going", "going to see", "see about", "today we", "we are",
+            "good morning", "morning everyone", "everyone", "hello class", "welcome class",
+            "students", "today's class", "in this lecture", "about", "today we will"
+        )
+        return fillerPhrases.any { lower == it || lower.startsWith("$it ") || lower.endsWith(" $it") }
     }
 
     /**

@@ -2,6 +2,8 @@ package com.example.Simtas
 
 import com.example.Simtas.data.remote.SessionManager
 import com.example.Simtas.network.ChatConversationSummary
+import com.example.Simtas.network.ChatDeleteConversationRequest
+import com.example.Simtas.network.ChatDeleteConversationResponse
 import com.example.Simtas.network.ChatHistoryMessageItem
 import com.example.Simtas.network.ChatHistoryRequest
 import com.example.Simtas.network.ChatHistoryResponse
@@ -199,6 +201,29 @@ class QaAssistantChatTest {
         assertTrue(sources.contains(MessageSource.USER))
         assertTrue(sources.contains(MessageSource.ONLINE_GEMINI))
         assertTrue(sources.contains(MessageSource.OFFLINE_ENGINE))
+    }
+
+    @Test
+    fun testChatDeleteConversationRequest_Serialization() {
+        val request = ChatDeleteConversationRequest(conversation_id = 42)
+        val json = gson.toJson(request)
+        assertTrue("JSON should contain action delete_conversation", json.contains("\"action\":\"delete_conversation\""))
+        assertTrue("JSON should contain conversation_id 42", json.contains("\"conversation_id\":42"))
+    }
+
+    @Test
+    fun testChatDeleteConversationResponse_Deserialization() {
+        val backendJson = """
+            {
+                "success": true,
+                "message": "Conversation deleted successfully.",
+                "deleted_conversation_id": 42
+            }
+        """.trimIndent()
+        val response = gson.fromJson(backendJson, ChatDeleteConversationResponse::class.java)
+        assertTrue(response.success)
+        assertEquals("Conversation deleted successfully.", response.message)
+        assertEquals(42, response.deleted_conversation_id)
     }
 }
 

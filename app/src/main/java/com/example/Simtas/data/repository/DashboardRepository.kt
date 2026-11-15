@@ -15,8 +15,8 @@ object DashboardRepository {
 
         if (response.isSuccess && response.jsonObject != null) {
             val json = response.jsonObject
-            val name = json.optString("userName", SessionManager.getUserName())
-            val initials = json.optString("userInitials", "AM")
+            val name = json.optString("userName", "").ifBlank { SessionManager.getUserName() }
+            val initials = json.optString("userInitials", "").ifBlank { SessionManager.computeInitials(name) }
             val date = json.optString("dateText", "Today")
             val totalNotes = json.optInt("totalNotes", 0)
             val subjectsCount = json.optInt("subjectsCount", 0)
@@ -67,10 +67,11 @@ object DashboardRepository {
 
         val localRecent = com.example.Simtas.data.local.LectureNotesStorage.getAllRecentNotes()
         if (localRecent.isNotEmpty()) {
+            val name = SessionManager.getUserName()
             return DashboardUiState(
-                userName = SessionManager.getUserName(),
+                userName = name,
                 dateText = "Today",
-                userInitials = "AM",
+                userInitials = SessionManager.computeInitials(name),
                 totalNotes = localRecent.size,
                 subjectsCount = localRecent.map { it.subject }.distinct().size,
                 quizzesCount = 0,

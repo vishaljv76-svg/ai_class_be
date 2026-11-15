@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.data.repository
+package com.example.Simtas.data.repository
 
 import com.example.Simtas.data.remote.ApiClient
 import com.example.Simtas.data.remote.SessionManager
@@ -27,16 +27,31 @@ object ProfileRepository {
             val user = json.optJSONObject("user")
             val profile = json.optJSONObject("profile")
 
-            val name = user?.optString("name") ?: SessionManager.getUserName()
-            val email = user?.optString("email") ?: SessionManager.getUserEmail()
-            val initials = user?.optString("initials") ?: "AM"
+            val cached = SessionManager.getUserProfile(userId)
+            val name = user?.optString("name")?.takeIf { it.isNotBlank() }
+                ?: cached?.get("name")?.takeIf { it.isNotBlank() }
+                ?: SessionManager.getUserName()
+            val email = user?.optString("email")?.takeIf { it.isNotBlank() }
+                ?: cached?.get("email")?.takeIf { it.isNotBlank() }
+                ?: SessionManager.getUserEmail()
+            val initials = user?.optString("initials")?.takeIf { it.isNotBlank() }
+                ?: SessionManager.computeInitials(name)
 
-            val course = profile?.optString("course") ?: "B.Tech · Computer Science"
-            val dept = profile?.optString("department") ?: "Computer Science & Engineering"
-            val semBadge = profile?.optString("semester_badge") ?: "Semester 7"
-            val yearBadge = profile?.optString("year_badge") ?: "Final year"
+            val course = profile?.optString("course")?.takeIf { it.isNotBlank() }
+                ?: cached?.get("course")?.takeIf { it.isNotBlank() }
+                ?: ""
+            val dept = profile?.optString("department")?.takeIf { it.isNotBlank() }
+                ?: cached?.get("department")?.takeIf { it.isNotBlank() }
+                ?: ""
+            val semBadge = profile?.optString("semester_badge")?.takeIf { it.isNotBlank() }
+                ?: cached?.get("semester_badge")?.takeIf { it.isNotBlank() }
+                ?: ""
+            val yearBadge = profile?.optString("year_badge")?.takeIf { it.isNotBlank() }
+                ?: cached?.get("year_badge")?.takeIf { it.isNotBlank() }
+                ?: ""
             val photoUrl = profile?.optString("profile_image")?.takeIf { it.isNotBlank() && it != "null" }
                 ?: user?.optString("profile_image")?.takeIf { it.isNotBlank() && it != "null" }
+                ?: cached?.get("photo_path")?.takeIf { it.isNotBlank() }
 
             return ProfileData(
                 userName = name,
@@ -79,7 +94,17 @@ object ProfileRepository {
 
         val response = ApiClient.post("profile/profile_edit.php", payload)
         if (response.isSuccess) {
+            val uId = SessionManager.getUserId()
             SessionManager.updateUserName(null, name)
+            SessionManager.saveUserProfile(
+                context = null,
+                userId = uId,
+                course = course,
+                department = department,
+                semesterBadge = if (semester.isNotBlank()) "Semester $semester" else "",
+                yearBadge = "",
+                name = name
+            )
             return true
         }
         return false
@@ -91,8 +116,9 @@ object ProfileRepository {
         semester: String,
         name: String? = null
     ): Boolean {
+        val uId = SessionManager.getUserId()
         val payload = JSONObject().apply {
-            put("userId", SessionManager.getUserId())
+            put("userId", uId)
             put("selectedCourse", course)
             put("selectedDepartment", department)
             put("selectedSemester", semester)
@@ -102,6 +128,20 @@ object ProfileRepository {
         }.toString()
 
         val response = ApiClient.post("profile/profile_add.php", payload)
+        if (response.isSuccess && uId > 0) {
+            if (!name.isNullOrBlank()) {
+                SessionManager.updateUserName(null, name)
+            }
+            SessionManager.saveUserProfile(
+                context = null,
+                userId = uId,
+                course = course,
+                department = department,
+                semesterBadge = if (semester.isNotBlank()) "Semester $semester" else "",
+                yearBadge = "",
+                name = name ?: SessionManager.getUserName()
+            )
+        }
         return response.isSuccess
     }
 }

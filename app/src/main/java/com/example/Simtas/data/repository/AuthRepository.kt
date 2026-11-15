@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.data.repository
+package com.example.Simtas.data.repository
 
 import android.content.Context
 import com.example.Simtas.data.remote.ApiClient
@@ -28,12 +28,12 @@ object AuthRepository {
         if (response.isSuccess && response.jsonObject != null) {
             val json = response.jsonObject
             val token = json.optString("token")
-            val userId = json.optInt("user_id", 1)
             val userObj = json.optJSONObject("user")
+            val userId = userObj?.optInt("id") ?: json.optInt("user_id", 0)
             val userName = userObj?.optString("name", name) ?: name
             val userEmail = userObj?.optString("email", email) ?: email
 
-            if (token.isNotEmpty()) {
+            if (token.isNotEmpty() && userId > 0) {
                 SessionManager.saveSession(context, token, userId, userName, userEmail)
             }
 
@@ -64,13 +64,27 @@ object AuthRepository {
             val json = response.jsonObject
             val token = json.optString("token")
             val userObj = json.optJSONObject("user")
-            val userId = userObj?.optInt("id", 1) ?: 1
-            val userName = userObj?.optString("name", "Alex") ?: "Alex"
+            val userId = userObj?.optInt("id") ?: json.optInt("user_id", 0)
+            val userName = userObj?.optString("name", "") ?: ""
             val userEmail = userObj?.optString("email", email) ?: email
             val hasProfile = json.optBoolean("has_profile", false)
+            val profileObj = json.optJSONObject("profile")
 
-            if (token.isNotEmpty()) {
+            if (token.isNotEmpty() && userId > 0) {
                 SessionManager.saveSession(context, token, userId, userName, userEmail)
+                if (profileObj != null) {
+                    SessionManager.saveUserProfile(
+                        context = context,
+                        userId = userId,
+                        course = profileObj.optString("course", ""),
+                        department = profileObj.optString("department", ""),
+                        semesterBadge = profileObj.optString("semester_badge", ""),
+                        yearBadge = profileObj.optString("year_badge", ""),
+                        name = userName,
+                        email = userEmail,
+                        photoPath = profileObj.optString("profile_image").takeIf { it.isNotBlank() && it != "null" }
+                    )
+                }
             }
 
             return AuthResult(
@@ -113,14 +127,32 @@ object AuthRepository {
             val userId = userObj?.optInt("id") ?: json.optInt("user_id", SessionManager.getUserId())
             val userName = userObj?.optString("name") ?: SessionManager.getUserName()
             val userEmail = userObj?.optString("email") ?: SessionManager.getUserEmail()
+            val profileObj = json.optJSONObject("profile")
 
             // Keep persistent session fresh
             SessionManager.saveSession(context, token, userId, userName, userEmail)
+            if (profileObj != null && userId > 0) {
+                SessionManager.saveUserProfile(
+                    context = context,
+                    userId = userId,
+                    course = profileObj.optString("course", ""),
+                    department = profileObj.optString("department", ""),
+                    semesterBadge = profileObj.optString("semester_badge", ""),
+                    yearBadge = profileObj.optString("year_badge", ""),
+                    name = userName,
+                    email = userEmail,
+                    photoPath = profileObj.optString("profile_image").takeIf { it.isNotBlank() && it != "null" }
+                )
+            }
             return true
-        } else {
-            // Token is invalid, expired, or revoked
+        } else if (response.statusCode == 401 || response.statusCode == 403 || (response.statusCode in 200..299 && response.jsonObject?.optBoolean("success", true) == false)) {
+            // Token is explicitly invalid, expired, or revoked by server
             SessionManager.clearSession(context)
             return false
+        } else {
+            // Server is unreachable, network error, or device is offline.
+            // Do not clear session - maintain offline session so users are not repeatedly forced to log in.
+            return true
         }
     }
 

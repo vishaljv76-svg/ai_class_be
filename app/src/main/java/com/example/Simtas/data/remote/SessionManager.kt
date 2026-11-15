@@ -16,10 +16,12 @@ object SessionManager {
     private const val KEY_PROFILE_PHOTO_PATH = "profile_photo_path"
 
     private var inMemoryToken: String? = null
-    private var inMemoryUserId: Int = 1
-    private var inMemoryUserName: String = "Alex Morgan"
-    private var inMemoryUserEmail: String = "alex.morgan@campus.edu"
+    private var inMemoryUserId: Int = 0
+    private var inMemoryUserName: String = ""
+    private var inMemoryUserEmail: String = ""
     private var inMemoryPhotoPath: String? = null
+    private val inMemoryProfiles = mutableMapOf<Int, MutableMap<String, String>>()
+    private val inMemoryPhotoPaths = mutableMapOf<Int, String>()
     private var appContext: Context? = null
     private var inMemoryLastAudioId: Int? = null
     private var inMemoryLastAudioTitle: String? = null
@@ -43,17 +45,26 @@ object SessionManager {
         com.example.Simtas.data.local.LectureNotesStorage.init(context)
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         inMemoryToken = prefs.getString(KEY_AUTH_TOKEN, null)
-        inMemoryUserId = prefs.getInt(KEY_USER_ID, 1)
-        inMemoryUserName = prefs.getString(KEY_USER_NAME, "Alex Morgan") ?: "Alex Morgan"
-        inMemoryUserEmail = prefs.getString(KEY_USER_EMAIL, "alex.morgan@campus.edu") ?: "alex.morgan@campus.edu"
+        inMemoryUserId = prefs.getInt(KEY_USER_ID, 0)
+        inMemoryUserName = prefs.getString(KEY_USER_NAME, "") ?: ""
+        inMemoryUserEmail = prefs.getString(KEY_USER_EMAIL, "") ?: ""
         inMemoryPhotoPath = prefs.getString(KEY_PROFILE_PHOTO_PATH, null)
     }
 
     fun saveSession(context: Context? = null, token: String, userId: Int, name: String, email: String) {
+        if (appContext == null && context != null) {
+            appContext = context.applicationContext
+        }
         inMemoryToken = token
         inMemoryUserId = userId
         inMemoryUserName = name
         inMemoryUserEmail = email
+
+        if (userId > 0) {
+            val prof = inMemoryProfiles.getOrPut(userId) { mutableMapOf() }
+            if (name.isNotBlank()) prof["name"] = name
+            if (email.isNotBlank()) prof["email"] = email
+        }
 
         val ctx = context ?: appContext
         ctx?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.apply {
@@ -61,20 +72,42 @@ object SessionManager {
             putInt(KEY_USER_ID, userId)
             putString(KEY_USER_NAME, name)
             putString(KEY_USER_EMAIL, email)
+            // Also store in user-isolated slot
+            if (userId > 0) {
+                putString("user_${userId}_name", name)
+                putString("user_${userId}_email", email)
+            }
             apply()
         }
     }
 
     fun updateUserName(context: Context? = null, name: String) {
+        if (appContext == null && context != null) {
+            appContext = context.applicationContext
+        }
         inMemoryUserName = name
+        if (inMemoryUserId > 0) {
+            inMemoryProfiles.getOrPut(inMemoryUserId) { mutableMapOf() }["name"] = name
+        }
         val ctx = context ?: appContext
         ctx?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.apply {
             putString(KEY_USER_NAME, name)
+            if (inMemoryUserId > 0) {
+                putString("user_${inMemoryUserId}_name", name)
+            }
             apply()
         }
     }
 
-    fun getToken(): String? = inMemoryToken
+    fun getToken(): String? {
+        if (!inMemoryToken.isNullOrEmpty()) return inMemoryToken
+        val saved = appContext?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.getString(KEY_AUTH_TOKEN, null)
+        if (!saved.isNullOrEmpty()) {
+            inMemoryToken = saved
+            return saved
+        }
+        return inMemoryToken
+    }
 
     fun getUserId(): Int = inMemoryUserId
 
@@ -82,18 +115,141 @@ object SessionManager {
 
     fun getUserEmail(): String = inMemoryUserEmail
 
-    fun getProfilePhotoPath(): String? = inMemoryPhotoPath
+    fun getProfilePhotoPath(userId: Int = inMemoryUserId): String? {
+        if (userId <= 0) return null
+        val mem = inMemoryPhotoPaths[userId] ?: if (userId == inMemoryUserId) inMemoryPhotoPath else null
+        val ctx = appContext
+        if (ctx == null) return mem
+        return ctx.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).getString("user_${userId}_photo_path", mem)
+            ?: mem
+    }
 
-    fun saveProfilePhotoPath(context: Context? = null, path: String?) {
-        inMemoryPhotoPath = path
+    fun saveProfilePhotoPath(context: Context? = null, path: String?, userId: Int = inMemoryUserId) {
+        if (appContext == null && context != null) {
+            appContext = context.applicationContext
+        }
+        if (userId > 0) {
+            if (path == null) inMemoryPhotoPaths.remove(userId) else inMemoryPhotoPaths[userId] = path
+            inMemoryProfiles[userId]?.let {
+                if (path == null) it.remove("photo_path") else it["photo_path"] = path
+            }
+        }
+        if (userId == inMemoryUserId) {
+            inMemoryPhotoPath = path
+        }
         val ctx = context ?: appContext
         ctx?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.apply {
+            if (userId > 0) {
+                if (path == null) remove("user_${userId}_photo_path") else putString("user_${userId}_photo_path", path)
+            }
             if (path == null) remove(KEY_PROFILE_PHOTO_PATH) else putString(KEY_PROFILE_PHOTO_PATH, path)
             apply()
         }
     }
 
-    fun isLoggedIn(): Boolean = !inMemoryToken.isNullOrEmpty()
+    fun computeInitials(name: String): String {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return ""
+        val parts = trimmed.split("\\s+".toRegex()).filter { it.isNotBlank() }
+        return when {
+            parts.size >= 2 -> "${parts[0].first().uppercaseChar()}${parts[1].first().uppercaseChar()}"
+            parts.size == 1 && parts[0].isNotEmpty() -> "${parts[0].first().uppercaseChar()}"
+            else -> ""
+        }
+    }
+
+    fun saveUserProfile(
+        context: Context? = null,
+        userId: Int,
+        course: String = "",
+        department: String = "",
+        semesterBadge: String = "",
+        yearBadge: String = "",
+        name: String = inMemoryUserName,
+        email: String = inMemoryUserEmail,
+        photoPath: String? = null
+    ) {
+        if (userId <= 0) return
+        val profile = inMemoryProfiles.getOrPut(userId) { mutableMapOf() }
+        if (name.isNotBlank()) profile["name"] = name
+        if (email.isNotBlank()) profile["email"] = email
+        profile["course"] = course
+        profile["department"] = department
+        profile["semester_badge"] = semesterBadge
+        profile["year_badge"] = yearBadge
+        if (photoPath != null) {
+            profile["photo_path"] = photoPath
+            inMemoryPhotoPaths[userId] = photoPath
+        }
+
+        val ctx = context ?: appContext
+        ctx?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.apply {
+            if (name.isNotBlank()) putString("user_${userId}_name", name)
+            if (email.isNotBlank()) putString("user_${userId}_email", email)
+            putString("user_${userId}_course", course)
+            putString("user_${userId}_department", department)
+            putString("user_${userId}_semester_badge", semesterBadge)
+            putString("user_${userId}_year_badge", yearBadge)
+            if (photoPath != null) {
+                putString("user_${userId}_photo_path", photoPath)
+            }
+            apply()
+        }
+    }
+
+    fun getUserProfile(userId: Int = inMemoryUserId): Map<String, String>? {
+        if (userId <= 0) return null
+        val inMem = inMemoryProfiles[userId]
+        val ctx = appContext
+        if (ctx == null) {
+            if (inMem != null) return inMem.toMap()
+            if (userId == inMemoryUserId && inMemoryUserName.isNotBlank()) {
+                return mapOf(
+                    "name" to inMemoryUserName,
+                    "email" to inMemoryUserEmail,
+                    "course" to "",
+                    "department" to "",
+                    "semester_badge" to "",
+                    "year_badge" to "",
+                    "photo_path" to (inMemoryPhotoPaths[userId] ?: inMemoryPhotoPath ?: "")
+                )
+            }
+            return null
+        }
+        val prefs = ctx.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val name = prefs.getString("user_${userId}_name", inMem?.get("name"))
+            ?: inMem?.get("name")
+            ?: (if (userId == inMemoryUserId) inMemoryUserName.takeIf { it.isNotBlank() } else null)
+            ?: return null
+        val email = prefs.getString("user_${userId}_email", inMem?.get("email") ?: inMemoryUserEmail)
+            ?: inMem?.get("email")
+            ?: (if (userId == inMemoryUserId) inMemoryUserEmail else "")
+        val course = prefs.getString("user_${userId}_course", inMem?.get("course") ?: "") ?: ""
+        val dept = prefs.getString("user_${userId}_department", inMem?.get("department") ?: "") ?: ""
+        val sem = prefs.getString("user_${userId}_semester_badge", inMem?.get("semester_badge") ?: "") ?: ""
+        val year = prefs.getString("user_${userId}_year_badge", inMem?.get("year_badge") ?: "") ?: ""
+        val photo = prefs.getString("user_${userId}_photo_path", inMem?.get("photo_path") ?: inMemoryPhotoPaths[userId])
+            ?: inMem?.get("photo_path") ?: inMemoryPhotoPaths[userId] ?: ""
+        return mapOf(
+            "name" to name,
+            "email" to email,
+            "course" to course,
+            "department" to dept,
+            "semester_badge" to sem,
+            "year_badge" to year,
+            "photo_path" to photo
+        )
+    }
+
+    fun isLoggedIn(): Boolean {
+        if (!inMemoryToken.isNullOrEmpty()) return true
+        val saved = appContext?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.getString(KEY_AUTH_TOKEN, null)
+        if (!saved.isNullOrEmpty()) {
+            inMemoryToken = saved
+            return true
+        }
+        return false
+    }
 
     fun setLastUploadedAudio(audioId: Int, title: String? = null, duration: String? = null) {
         inMemoryLastAudioId = audioId
@@ -213,10 +369,11 @@ object SessionManager {
     }
 
     fun clearSession(context: Context? = null) {
+        val prevUserId = inMemoryUserId
         inMemoryToken = null
-        inMemoryUserId = 1
-        inMemoryUserName = "Alex Morgan"
-        inMemoryUserEmail = "alex.morgan@campus.edu"
+        inMemoryUserId = 0
+        inMemoryUserName = ""
+        inMemoryUserEmail = ""
         inMemoryPhotoPath = null
         inMemoryLastAudioId = null
         inMemoryLastAudioTitle = null
@@ -230,8 +387,30 @@ object SessionManager {
         inMemoryDetectedQAs = emptyList()
         inMemoryLastQuizResult = null
 
+        if (prevUserId > 0) {
+            inMemoryProfiles.remove(prevUserId)
+            inMemoryPhotoPaths.remove(prevUserId)
+        }
+        com.example.Simtas.data.local.LectureNotesStorage.clearInMemory()
+
         val ctx = context ?: appContext
-        ctx?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.clear()?.apply()
+        ctx?.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)?.edit()?.apply {
+            remove(KEY_AUTH_TOKEN)
+            remove(KEY_USER_ID)
+            remove(KEY_USER_NAME)
+            remove(KEY_USER_EMAIL)
+            remove(KEY_PROFILE_PHOTO_PATH)
+            if (prevUserId > 0) {
+                remove("user_${prevUserId}_name")
+                remove("user_${prevUserId}_email")
+                remove("user_${prevUserId}_course")
+                remove("user_${prevUserId}_department")
+                remove("user_${prevUserId}_semester_badge")
+                remove("user_${prevUserId}_year_badge")
+                remove("user_${prevUserId}_photo_path")
+            }
+            apply()
+        }
     }
 }
 

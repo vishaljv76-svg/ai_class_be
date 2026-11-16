@@ -1,9 +1,12 @@
 ﻿package com.example.Simtas.ui.mynotes
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.Simtas.data.repository.NotesRepositoryImpl
 import com.example.Simtas.ui.home.HomeBottomTab
+import com.example.Simtas.utils.ExportResult
+import com.example.Simtas.utils.PdfExportManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -64,6 +67,32 @@ class MyNotesViewModel : ViewModel() {
         viewModelScope.launch {
             NotesRepositoryImpl.deleteNote(noteId)
             loadNotes() // re-sync count and list
+        }
+    }
+
+    /**
+     * Exports a note to a formatted PDF and saves it to the Downloads directory.
+     */
+    fun exportNoteToPdf(
+        context: Context,
+        note: NoteListItem,
+        onComplete: (Boolean, ExportResult?, String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val detailed = NotesRepositoryImpl.fetchNoteById(note.id)
+                    ?: com.example.Simtas.data.local.LectureNotesStorage.getDetailedNotes(note.id)
+                val pdfData = PdfExportManager.createPdfDataFromNoteItem(note, detailed)
+                val result = PdfExportManager.exportNoteToPdf(context, pdfData)
+                if (result.isSuccess) {
+                    onComplete(true, result.getOrNull(), null)
+                } else {
+                    val err = result.exceptionOrNull()?.localizedMessage ?: "PDF export failed"
+                    onComplete(false, null, err)
+                }
+            } catch (e: Exception) {
+                onComplete(false, null, e.localizedMessage ?: "Unknown error")
+            }
         }
     }
 }

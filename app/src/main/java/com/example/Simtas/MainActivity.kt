@@ -137,6 +137,8 @@ fun MainAppNavigation() {
     var showDiscardRecordDialog by remember { mutableStateOf(false) }
     var showDiscardPreviewDialog by remember { mutableStateOf(false) }
     var showAiAssistantSheet by remember { mutableStateOf(false) }
+    var pdfExportDialogResult by remember { mutableStateOf<com.example.Simtas.utils.ExportResult?>(null) }
+    var pdfExportDialogTitle by remember { mutableStateOf("") }
 
     // Automatic session validation & persistent login check on app startup
     LaunchedEffect(currentScreen) {
@@ -369,13 +371,14 @@ fun MainAppNavigation() {
                     currentScreen = previousScreenForNotes
                 },
                 onDownloadPdfClick = {
-                    generateAndSavePdf(
-                        context = context,
-                        noteTitle = detailedUiState.lectureTitle,
-                        noteSubject = "${detailedUiState.courseCode} · ${detailedUiState.tagText}",
-                        noteSummary = "${detailedUiState.section1Title}\n${detailedUiState.section1Content}\n\n${detailedUiState.section3Content1}",
-                        keyTakeaways = detailedUiState.section2Bullets
-                    )
+                    val pdfData = com.example.Simtas.utils.PdfExportManager.createPdfDataFromDetailedNotes(detailedUiState)
+                    val result = com.example.Simtas.utils.PdfExportManager.exportNoteToPdf(context, pdfData)
+                    if (result.isSuccess) {
+                        pdfExportDialogTitle = detailedUiState.lectureTitle
+                        pdfExportDialogResult = result.getOrNull()
+                    } else {
+                        android.widget.Toast.makeText(context, "Could not export PDF: ${result.exceptionOrNull()?.localizedMessage ?: "Unknown error"}", android.widget.Toast.LENGTH_SHORT).show()
+                    }
                 }
             )
         }
@@ -791,6 +794,59 @@ fun MainAppNavigation() {
             }
         )
     }
+
+    // 8. PDF Export Result Dialog (Open / Share / Dismiss)
+    if (pdfExportDialogResult != null) {
+        val result = pdfExportDialogResult!!
+        AlertDialog(
+            onDismissRequest = { pdfExportDialogResult = null },
+            title = {
+                Text(
+                    text = "PDF Saved to Downloads",
+                    fontWeight = FontWeight.Bold,
+                    color = TextDarkPrimary
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = pdfExportDialogTitle.ifBlank { "Lecture Notes" },
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextDarkPrimary
+                    )
+                    Text(
+                        text = "File: ${result.fileName}\nLocation: Downloads/SmartNotes_AI\nPages: ${result.pageCount}",
+                        color = TextMuted
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        com.example.Simtas.utils.PdfExportManager.openPdf(context, result.uri)
+                        pdfExportDialogResult = null
+                    }
+                ) {
+                    Text("Open PDF", color = PurplePrimary, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = {
+                            com.example.Simtas.utils.PdfExportManager.sharePdf(context, result.uri, pdfExportDialogTitle)
+                            pdfExportDialogResult = null
+                        }
+                    ) {
+                        Text("Share", color = PurplePrimary, fontWeight = FontWeight.SemiBold)
+                    }
+                    TextButton(onClick = { pdfExportDialogResult = null }) {
+                        Text("Dismiss", color = TextDarkPrimary)
+                    }
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -827,8 +883,8 @@ private fun NotificationAlertItem(
 }
 
 /**
- * Real Native PDF Generation using Android SDK's [PdfDocument].
- * Formats notes, computes lines, writes to the public Downloads directory, and notifies user.
+ * Real Native PDF Generation using Android SDK's [PdfDocument] via [com.example.Simtas.utils.PdfExportManager].
+ * Formats notes, writes to the Downloads directory, and notifies user.
  */
 private fun generateAndSavePdf(
     context: Context,
@@ -838,119 +894,23 @@ private fun generateAndSavePdf(
     keyTakeaways: List<String>
 ) {
     try {
-        val pdfDocument = PdfDocument()
-        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create() // Standard A4: 595 x 842 pt
-        val page = pdfDocument.startPage(pageInfo)
-        val canvas = page.canvas
-        val paint = Paint()
-
-        // Background subtle header band
-        paint.color = AndroidColor.rgb(243, 239, 255)
-        canvas.drawRect(0f, 0f, 595f, 130f, paint)
-
-        // Title brand
-        paint.color = AndroidColor.rgb(108, 92, 231)
-        paint.textSize = 22f
-        paint.isFakeBoldText = true
-        canvas.drawText("SmartNotes AI", 40f, 50f, paint)
-
-        // Note title
-        paint.color = AndroidColor.rgb(30, 27, 46)
-        paint.textSize = 17f
-        paint.isFakeBoldText = true
-        val safeTitle = noteTitle.ifBlank { "Lecture Notes" }
-        canvas.drawText(safeTitle, 40f, 85f, paint)
-
-        // Subject & Date
-        paint.color = AndroidColor.rgb(120, 115, 145)
-        paint.textSize = 11f
-        paint.isFakeBoldText = false
-        val dateStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date())
-        val subjectStr = noteSubject.ifBlank { "General" }
-        canvas.drawText("Subject: $subjectStr • Exported: $dateStr", 40f, 110f, paint)
-
-        var yPos = 160f
-
-        // Executive Summary Header
-        paint.color = AndroidColor.rgb(108, 92, 231)
-        paint.textSize = 14f
-        paint.isFakeBoldText = true
-        canvas.drawText("Executive Summary", 40f, yPos, paint)
-        yPos += 22f
-
-        // Summary text wrapped
-        paint.color = AndroidColor.rgb(45, 45, 55)
-        paint.textSize = 10.5f
-        paint.isFakeBoldText = false
-        val summaryLines = wrapTextToLines(noteSummary.ifBlank { "No summary provided." }, paint, 515f)
-        for (line in summaryLines.take(15)) {
-            canvas.drawText(line, 40f, yPos, paint)
-            yPos += 15f
+        val pdfData = com.example.Simtas.utils.NotePdfData(
+            title = noteTitle.ifBlank { "Lecture Notes" },
+            subject = noteSubject.ifBlank { "General" },
+            dateText = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date()),
+            section1Title = "Overview",
+            section1Content = noteSummary,
+            section2Title = "Key Takeaways",
+            section2Bullets = keyTakeaways
+        )
+        val result = com.example.Simtas.utils.PdfExportManager.exportNoteToPdf(context, pdfData)
+        if (result.isSuccess) {
+            val exportResult = result.getOrNull()
+            Toast.makeText(context, "PDF saved to Downloads:\n${exportResult?.fileName}", Toast.LENGTH_LONG).show()
+        } else {
+            Toast.makeText(context, "Could not save PDF: ${result.exceptionOrNull()?.localizedMessage ?: "Unknown error"}", Toast.LENGTH_SHORT).show()
         }
-
-        yPos += 20f
-
-        // Key Takeaways Header
-        paint.color = AndroidColor.rgb(108, 92, 231)
-        paint.textSize = 14f
-        paint.isFakeBoldText = true
-        canvas.drawText("Key Takeaways", 40f, yPos, paint)
-        yPos += 22f
-
-        paint.color = AndroidColor.rgb(45, 45, 55)
-        paint.textSize = 10.5f
-        paint.isFakeBoldText = false
-        val takeaways = if (keyTakeaways.isEmpty()) listOf("Review class lecture material for full details.") else keyTakeaways
-        for (takeaway in takeaways.take(8)) {
-            paint.color = AndroidColor.rgb(108, 92, 231)
-            canvas.drawCircle(44f, yPos - 3f, 3f, paint)
-            paint.color = AndroidColor.rgb(45, 45, 55)
-            val lines = wrapTextToLines(takeaway, paint, 490f)
-            for (line in lines) {
-                canvas.drawText(line, 55f, yPos, paint)
-                yPos += 15f
-            }
-            yPos += 5f
-        }
-
-        // Footer
-        paint.color = AndroidColor.rgb(160, 160, 175)
-        paint.textSize = 9f
-        paint.isFakeBoldText = false
-        canvas.drawText("Generated by SmartNotes AI · Study Smarter • Learn Better • Achieve More", 40f, 810f, paint)
-
-        pdfDocument.finishPage(page)
-
-        // Save PDF to Downloads
-        val cleanTitle = safeTitle.replace("[^a-zA-Z0-9]".toRegex(), "_").take(24)
-        val fileName = "SmartNotes_${cleanTitle}_${System.currentTimeMillis()}.pdf"
-        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        if (!downloadsDir.exists()) downloadsDir.mkdirs()
-        val file = File(downloadsDir, fileName)
-        val fos = FileOutputStream(file)
-        pdfDocument.writeTo(fos)
-        fos.close()
-        pdfDocument.close()
-
-        Toast.makeText(context, "PDF saved to Downloads:\n$fileName", Toast.LENGTH_LONG).show()
     } catch (e: Exception) {
         Toast.makeText(context, "Could not save PDF: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
     }
-}
-
-private fun wrapTextToLines(text: String, paint: Paint, maxWidth: Float): List<String> {
-    val words = text.split("\\s+".toRegex())
-    val lines = mutableListOf<String>()
-    var currentLine = StringBuilder()
-    for (word in words) {
-        val testLine = if (currentLine.isEmpty()) word else "$currentLine $word"
-        if (paint.measureText(testLine) <= maxWidth) {
-            currentLine = StringBuilder(testLine)
-        } else {
-            if (currentLine.isNotEmpty()) lines.add(currentLine.toString())
-            currentLine = StringBuilder(word)
-        }
-    }
-    if (currentLine.isNotEmpty()) lines.add(currentLine.toString())
-    return lines
 }

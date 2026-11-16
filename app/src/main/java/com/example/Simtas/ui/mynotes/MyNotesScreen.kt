@@ -1,5 +1,6 @@
 package com.example.Simtas.ui.mynotes
 
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,15 +19,21 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +46,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -53,6 +61,8 @@ import com.example.Simtas.ui.theme.SplashBackground
 import com.example.Simtas.ui.theme.TextDarkPrimary
 import com.example.Simtas.ui.theme.TextMuted
 import com.example.Simtas.ui.theme.TextSubtitle
+import com.example.Simtas.utils.ExportResult
+import com.example.Simtas.utils.PdfExportManager
 
 val ChipUnselectedBg = Color.White
 val TrashRed = Color(0xFFE53935)
@@ -69,6 +79,9 @@ fun MyNotesScreen(
     onTabSelect: (HomeBottomTab) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    var exportDialogResult by remember { mutableStateOf<ExportResult?>(null) }
+    var exportDialogNoteTitle by remember { mutableStateOf("") }
 
     MyNotesScreenContent(
         uiState = uiState,
@@ -78,11 +91,84 @@ fun MyNotesScreen(
         onCategorySelect = viewModel::selectCategory,
         onNoteClick = onNoteClick,
         onDeleteNoteClick = viewModel::onDeleteNote,
+        onDownloadPdfClick = { note ->
+            viewModel.exportNoteToPdf(context, note) { success, result, error ->
+                if (success && result != null) {
+                    exportDialogNoteTitle = note.title
+                    exportDialogResult = result
+                } else {
+                    Toast.makeText(context, "Could not export PDF: ${error ?: "Unknown error"}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        },
         onTabSelect = { tab ->
             viewModel.selectTab(tab)
             onTabSelect(tab)
         }
     )
+
+    if (exportDialogResult != null) {
+        val result = exportDialogResult!!
+        AlertDialog(
+            onDismissRequest = { exportDialogResult = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Canvas(modifier = Modifier.size(20.dp)) {
+                        drawPdfDownloadIcon(PurplePrimary)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "PDF Saved to Downloads",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        color = TextDarkPrimary
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = exportDialogNoteTitle.ifBlank { "Lecture Notes" },
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        color = TextDarkPrimary
+                    )
+                    Text(
+                        text = "File: ${result.fileName}\nLocation: Downloads/SmartNotes_AI\nPages: ${result.pageCount}",
+                        fontSize = 12.sp,
+                        color = TextMuted,
+                        lineHeight = 17.sp
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        PdfExportManager.openPdf(context, result.uri)
+                        exportDialogResult = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary)
+                ) {
+                    Text("Open PDF", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = {
+                            PdfExportManager.sharePdf(context, result.uri, exportDialogNoteTitle)
+                            exportDialogResult = null
+                        }
+                    ) {
+                        Text("Share", color = PurplePrimary, fontWeight = FontWeight.SemiBold)
+                    }
+                    TextButton(onClick = { exportDialogResult = null }) {
+                        Text("Dismiss", color = TextMuted)
+                    }
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -94,6 +180,7 @@ fun MyNotesScreenContent(
     onCategorySelect: (Int) -> Unit = {},
     onNoteClick: (String) -> Unit = {},
     onDeleteNoteClick: (String) -> Unit = {},
+    onDownloadPdfClick: (NoteListItem) -> Unit = {},
     onTabSelect: (HomeBottomTab) -> Unit = {}
 ) {
     Surface(
@@ -215,7 +302,8 @@ fun MyNotesScreenContent(
                         NoteCardItem(
                             note = note,
                             onClick = { onNoteClick(note.id) },
-                            onDeleteClick = { onDeleteNoteClick(note.id) }
+                            onDeleteClick = { onDeleteNoteClick(note.id) },
+                            onDownloadPdfClick = { onDownloadPdfClick(note) }
                         )
                     }
                 }
@@ -341,7 +429,8 @@ private fun CategoryFilterChipsRow(
 private fun NoteCardItem(
     note: NoteListItem,
     onClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onDownloadPdfClick: () -> Unit = {}
 ) {
     val shape = RoundedCornerShape(20.dp)
     Box(
@@ -473,7 +562,7 @@ private fun NoteCardItem(
                     // PDF download icon
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { /* Download PDF */ }
+                        modifier = Modifier.clickable { onDownloadPdfClick() }
                     ) {
                         Canvas(modifier = Modifier.size(14.dp)) {
                             drawPdfDownloadIcon(PurplePrimary)
@@ -637,7 +726,7 @@ private fun DrawScope.drawTrashDeleteIcon(color: Color) {
     drawRoundRect(color = color, topLeft = Offset(size.width * 0.28f, size.height * 0.3f), size = Size(size.width * 0.44f, size.height * 0.55f), cornerRadius = CornerRadius(2.dp.toPx()), style = stroke)
 }
 
-private fun DrawScope.drawPdfDownloadIcon(color: Color) {
+fun DrawScope.drawPdfDownloadIcon(color: Color) {
     val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
     val trayPath = Path().apply {
         moveTo(size.width * 0.2f, size.height * 0.65f)

@@ -49,25 +49,34 @@ object QuizRepository {
     @Volatile
     var cachedActiveQuiz: QuizDetailResult? = null
 
+    @Volatile
+    var cachedSubmissionResult: QuizSubmissionResult? = null
+
     /**
-     * Generates a new quiz derived strictly from a specific note or all saved My Notes.
+     * Generates a new quiz derived strictly from a typed topic, a specific note, or all saved My Notes.
      */
     suspend fun generateQuiz(
+        topic: String? = null,
         noteId: Int? = null,
         noteKey: String? = null,
-        numberOfQuestions: Int = 5,
-        difficulty: String = "Moderate"
+        numberOfQuestions: Int = 10,
+        difficulty: String = "Moderate",
+        questionType: String = "MCQ"
     ): QuizDetailResult = withContext(Dispatchers.IO) {
         val userId = SessionManager.getUserId()
         val payload = JSONObject().apply {
             put("userId", userId)
-            if (noteId != null && noteId > 0) {
+            if (!topic.isNullOrBlank()) {
+                put("topic", topic.trim())
+                put("subject", topic.trim())
+            } else if (noteId != null && noteId > 0) {
                 put("note_id", noteId)
             } else {
                 put("scope", "all")
             }
             put("numberOfQuestions", numberOfQuestions)
             put("difficulty", difficulty)
+            put("question_type", questionType)
         }.toString()
 
         val response = ApiClient.post("quiz/generate_quiz.php", payload)
@@ -133,20 +142,22 @@ object QuizRepository {
             }
         }
 
-        // Offline / Network-fallback: Generate quiz directly from local saved My Notes
-        val offlineCandidateNotes = if (!noteKey.isNullOrBlank()) {
-            val single = com.example.Simtas.data.local.LectureNotesStorage.getSavedLecture(noteKey)
-            if (single != null) listOf(single) else emptyList()
-        } else if (noteId != null && noteId > 0) {
-            val single = com.example.Simtas.data.local.LectureNotesStorage.getSavedLecture(noteId.toString())
-            if (single != null) listOf(single) else emptyList()
-        } else {
-            val list = com.example.Simtas.data.local.LectureNotesStorage.getAllNotesForList(userId)
-            list.mapNotNull { com.example.Simtas.data.local.LectureNotesStorage.getSavedLecture(it.id) }
-        }
+        // Offline / Network-fallback: Generate quiz directly from local saved My Notes ONLY if a topic was not specified
+        if (topic.isNullOrBlank()) {
+            val offlineCandidateNotes = if (!noteKey.isNullOrBlank()) {
+                val single = com.example.Simtas.data.local.LectureNotesStorage.getSavedLecture(noteKey)
+                if (single != null) listOf(single) else emptyList()
+            } else if (noteId != null && noteId > 0) {
+                val single = com.example.Simtas.data.local.LectureNotesStorage.getSavedLecture(noteId.toString())
+                if (single != null) listOf(single) else emptyList()
+            } else {
+                val list = com.example.Simtas.data.local.LectureNotesStorage.getAllNotesForList(userId)
+                list.mapNotNull { com.example.Simtas.data.local.LectureNotesStorage.getSavedLecture(it.id) }
+            }
 
-        if (offlineCandidateNotes.isNotEmpty()) {
-            return@withContext generateOfflineQuizFromNotes(offlineCandidateNotes, numberOfQuestions, difficulty)
+            if (offlineCandidateNotes.isNotEmpty()) {
+                return@withContext generateOfflineQuizFromNotes(offlineCandidateNotes, numberOfQuestions, difficulty)
+            }
         }
 
         QuizDetailResult(
@@ -357,7 +368,7 @@ object QuizRepository {
                 }
             }
 
-            QuizSubmissionResult(
+            val submissionResult = QuizSubmissionResult(
                 isSuccess = true,
                 scorePercentage = score,
                 correctCount = correct,
@@ -366,6 +377,8 @@ object QuizRepository {
                 feedbackText = feedback,
                 reviewItems = reviewItems
             )
+            cachedSubmissionResult = submissionResult
+            submissionResult
         } else {
             QuizSubmissionResult(
                 isSuccess = false,

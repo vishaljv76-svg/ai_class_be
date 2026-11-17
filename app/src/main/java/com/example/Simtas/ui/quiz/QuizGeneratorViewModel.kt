@@ -129,6 +129,15 @@ class QuizGeneratorViewModel(
         }
     }
 
+    fun onTopicInputChanged(topic: String) {
+        _uiState.update {
+            it.copy(
+                topicInput = topic,
+                errorMessage = null
+            )
+        }
+    }
+
     fun onNumberOfQuestionsSelected(count: Int) {
         _uiState.update {
             it.copy(
@@ -147,24 +156,35 @@ class QuizGeneratorViewModel(
     }
 
     fun onGenerateQuizClicked(onQuizReady: () -> Unit = {}) {
-        if (_uiState.value.isMyNotesEmpty) return
+        val topic = _uiState.value.topicInput.trim()
+        val isTopicMode = topic.isNotBlank()
+
+        if (!isTopicMode && _uiState.value.isMyNotesEmpty) return
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
         val executeGeneration: suspend () -> Unit = {
-            val noteId = _uiState.value.selectedNoteId
-            val noteKey = _uiState.value.selectedNoteKey
+            val noteId = if (isTopicMode) null else _uiState.value.selectedNoteId
+            val noteKey = if (isTopicMode) null else _uiState.value.selectedNoteKey
             val numQ = _uiState.value.numberOfQuestions
             val diff = when (_uiState.value.difficulty) {
                 DifficultyLevel.EASY -> "Easy"
-                DifficultyLevel.MODERATE -> "Moderate"
+                DifficultyLevel.MODERATE -> "Medium"
                 DifficultyLevel.HARD -> "Hard"
+                DifficultyLevel.MIXED -> "Mixed"
+            }
+            val qType = when (_uiState.value.questionType) {
+                QuestionType.MCQ -> "MCQ"
+                QuestionType.TRUE_FALSE -> "True / False"
+                QuestionType.MIXED -> "Mixed"
             }
 
             val result = QuizRepository.generateQuiz(
+                topic = if (isTopicMode) topic else null,
                 noteId = noteId,
                 noteKey = noteKey,
                 numberOfQuestions = numQ,
-                difficulty = diff
+                difficulty = diff,
+                questionType = qType
             )
 
             _uiState.update { it.copy(isLoading = false) }

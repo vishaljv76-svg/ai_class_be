@@ -26,6 +26,7 @@ class QuizQuestionViewModel(
 
     private var questionsList: List<RealQuizQuestion> = emptyList()
     private val selectedAnswers = mutableMapOf<Int, String>()
+    private var isSubmitting: Boolean = false
 
     private fun isAndroidRuntime(): Boolean {
         return try {
@@ -99,24 +100,40 @@ class QuizQuestionViewModel(
         }
     }
 
-    fun onNextClicked() {
+    fun onPreviousClicked() {
+        val current = _uiState.value.currentQuestionIndex
+        if (current > 1) {
+            displayQuestion(current - 2)
+        }
+    }
+
+    fun onNextClicked(onQuizFinish: () -> Unit = {}) {
         val current = _uiState.value.currentQuestionIndex
         val total = _uiState.value.totalQuestions
         if (current < total) {
             displayQuestion(current)
         } else {
+            if (isSubmitting) return
+            isSubmitting = true
+            _uiState.update { it.copy(statusNoteText = "Submitting quiz...") }
+
             val submitAction: suspend () -> Unit = {
-                val activeQuizId = QuizRepository.cachedActiveQuiz?.quizId ?: 0
-                if (activeQuizId > 0) {
-                    QuizRepository.submitQuiz(activeQuizId, selectedAnswers)
+                try {
+                    val activeQuizId = QuizRepository.cachedActiveQuiz?.quizId ?: 0
+                    if (activeQuizId > 0) {
+                        QuizRepository.submitQuiz(activeQuizId, selectedAnswers)
+                    }
+                } finally {
+                    isSubmitting = false
                 }
+                _uiState.update { it.copy(isQuizFinished = true) }
+                onQuizFinish()
             }
             if (!isAndroidRuntime()) {
                 runBlocking { submitAction() }
             } else {
                 safeScope().launch(Dispatchers.IO) { submitAction() }
             }
-            _uiState.update { it.copy(isQuizFinished = true) }
         }
     }
 }

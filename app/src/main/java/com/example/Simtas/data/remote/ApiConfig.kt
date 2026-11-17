@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.data.remote
+package com.example.Simtas.data.remote
 
 /**
  * Centralized API configuration for SmartNotes AI.
@@ -16,5 +16,5 @@
  * - Change to "http://10.0.2.2/ai_class_be"
  */
 object ApiConfig {
-   var BASE_URL = "https://correct-retorted-skedaddle.ngrok-free.dev/ai_class_bebackend/"
+   var BASE_URL = "https://correct-retorted-skedaddle.ngrok-free.dev/ai_class_be/"
 }

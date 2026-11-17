@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -23,6 +24,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -74,6 +77,7 @@ fun QuizGeneratorScreen(
         uiState = uiState,
         modifier = modifier,
         onBackClick = onBackClick,
+        onTopicChange = viewModel::onTopicInputChanged,
         onSubjectSelect = viewModel::onSubjectSelected,
         onQuestionsCountSelect = viewModel::onNumberOfQuestionsSelected,
         onQuestionTypeSelect = viewModel::onQuestionTypeSelected,
@@ -89,6 +93,7 @@ fun QuizGeneratorScreenContent(
     uiState: QuizGeneratorUiState,
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
+    onTopicChange: (String) -> Unit = {},
     onSubjectSelect: (String) -> Unit = {},
     onQuestionsCountSelect: (Int) -> Unit = {},
     onQuestionTypeSelect: (QuestionType) -> Unit = {},
@@ -138,35 +143,9 @@ fun QuizGeneratorScreenContent(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                if (uiState.isMyNotesEmpty) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFFFFF3CD))
-                            .padding(14.dp)
-                    ) {
-                        Text(
-                            text = "💡 No study notes saved yet. Ask questions in AI Study Copilot or record a lecture first to generate your custom AI quiz!",
-                            fontSize = 12.sp,
-                            color = Color(0xFF856404),
-                            lineHeight = 16.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(14.dp))
-                }
-
-                // Based On Your Lecture Card
-                BasedOnLectureCard(
-                    lectureTitle = uiState.lectureTitle,
-                    lectureMetadata = uiState.lectureMetadata
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Subject Selection Field
+                // 1. Topic-Based Input Field
                 Text(
-                    text = "Subject",
+                    text = "Subject, Chapter or Topic",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextDarkPrimary
@@ -174,15 +153,127 @@ fun QuizGeneratorScreenContent(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                DropdownSelectField(
-                    selectedText = uiState.selectedSubject,
-                    options = uiState.subjectOptions,
-                    onOptionSelected = onSubjectSelect
+                OutlinedTextField(
+                    value = uiState.topicInput,
+                    onValueChange = onTopicChange,
+                    placeholder = {
+                        Text(
+                            text = "e.g. NPTEL Exam – Computer Networks, Data Structures...",
+                            fontSize = 13.sp,
+                            color = TextMuted
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedBorderColor = PurplePrimary,
+                        unfocusedBorderColor = Color(0xFFE2E8F0)
+                    )
                 )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Quick Topic Suggestion Chips
+                val suggestions = listOf(
+                    "NPTEL Exam – Computer Networks",
+                    "Data Structures",
+                    "Database Management Systems",
+                    "Operating Systems",
+                    "Python Programming",
+                    "Artificial Intelligence"
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    suggestions.forEach { suggestion ->
+                        val isCurrent = uiState.topicInput.equals(suggestion, ignoreCase = true)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (isCurrent) SegmentSelectedBg else Color.White)
+                                .border(1.dp, if (isCurrent) PurplePrimary else Color(0xFFE2E8F0), RoundedCornerShape(14.dp))
+                                .clickable { onTopicChange(suggestion) }
+                                .padding(horizontal = 12.dp, vertical = 7.dp)
+                        ) {
+                            Text(
+                                text = suggestion,
+                                fontSize = 11.sp,
+                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isCurrent) PurplePrimary else TextDarkPrimary
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (uiState.topicInput.isNotBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFFEBF5FB))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = "✨ Gemini will generate custom questions tailored specifically for \"${uiState.topicInput.trim()}\"",
+                            fontSize = 12.sp,
+                            color = Color(0xFF1B4F72)
+                        )
+                    }
+                } else {
+                    if (uiState.isMyNotesEmpty) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFFFF3CD))
+                                .padding(14.dp)
+                        ) {
+                            Text(
+                                text = "💡 Type any topic above or save notes to generate your AI quiz!",
+                                fontSize = 12.sp,
+                                color = Color(0xFF856404),
+                                lineHeight = 16.sp
+                            )
+                        }
+                    } else {
+                        // Based On Your Lecture Card
+                        BasedOnLectureCard(
+                            lectureTitle = uiState.lectureTitle,
+                            lectureMetadata = uiState.lectureMetadata
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Subject Selection Field
+                        Text(
+                            text = "Or choose from your saved notes",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextDarkPrimary
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        DropdownSelectField(
+                            selectedText = uiState.selectedSubject,
+                            options = uiState.subjectOptions,
+                            onOptionSelected = onSubjectSelect
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // Number of questions Selector
+                // Number of questions Selector (10, 20, 30, 50)
                 Text(
                     text = "Number of questions",
                     fontSize = 13.sp,
@@ -196,7 +287,7 @@ fun QuizGeneratorScreenContent(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    listOf(5, 10, 15).forEach { count ->
+                    listOf(10, 20, 30, 50).forEach { count ->
                         SegmentPillItem(
                             text = count.toString(),
                             isSelected = uiState.numberOfQuestions == count,
@@ -208,9 +299,9 @@ fun QuizGeneratorScreenContent(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // Question type Selector
+                // Question format Selector (MCQ Only, Mixed)
                 Text(
-                    text = "Question type",
+                    text = "Question format",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextDarkPrimary
@@ -223,8 +314,7 @@ fun QuizGeneratorScreenContent(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     listOf(
-                        QuestionType.MCQ to "MCQ",
-                        QuestionType.TRUE_FALSE to "True / False",
+                        QuestionType.MCQ to "MCQ Only",
                         QuestionType.MIXED to "Mixed"
                     ).forEach { (type, label) ->
                         SegmentPillItem(
@@ -238,7 +328,7 @@ fun QuizGeneratorScreenContent(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // Difficulty Selector
+                // Difficulty Selector (Easy, Medium, Hard, Mixed)
                 Text(
                     text = "Difficulty",
                     fontSize = 13.sp,
@@ -254,8 +344,9 @@ fun QuizGeneratorScreenContent(
                 ) {
                     listOf(
                         DifficultyLevel.EASY to "Easy",
-                        DifficultyLevel.MODERATE to "Moderate",
-                        DifficultyLevel.HARD to "Hard"
+                        DifficultyLevel.MODERATE to "Medium",
+                        DifficultyLevel.HARD to "Hard",
+                        DifficultyLevel.MIXED to "Mixed"
                     ).forEach { (level, label) ->
                         SegmentPillItem(
                             text = label,
@@ -283,22 +374,41 @@ fun QuizGeneratorScreenContent(
                     )
                 }
 
+                if (!uiState.errorMessage.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFFFEBEE))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = "⚠️ " + uiState.errorMessage,
+                            fontSize = 12.sp,
+                            color = Color(0xFFC62828)
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Generate Quiz CTA Button
+                val canGenerate = (uiState.topicInput.isNotBlank() || !uiState.isMyNotesEmpty) && !uiState.isLoading
+
                 Button(
                     onClick = {
-                        if (!uiState.isMyNotesEmpty) {
+                        if (canGenerate) {
                             onGenerateQuizClick()
                         }
                     },
-                    enabled = !uiState.isMyNotesEmpty && !uiState.isLoading,
+                    enabled = canGenerate,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(54.dp),
                     shape = RoundedCornerShape(27.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (uiState.isMyNotesEmpty) Color.LightGray else PurplePrimary,
+                        containerColor = if (canGenerate) PurplePrimary else Color.LightGray,
                         disabledContainerColor = Color(0xFFD1D5DB)
                     ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
@@ -312,7 +422,7 @@ fun QuizGeneratorScreenContent(
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = if (uiState.isLoading) "Generating Quiz..." else if (uiState.isMyNotesEmpty) "Add Notes to Generate Quiz" else "Generate Quiz",
+                            text = if (uiState.isLoading) "Generating Quiz..." else if (!canGenerate) "Type a Topic to Generate Quiz" else "Generate Quiz",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White

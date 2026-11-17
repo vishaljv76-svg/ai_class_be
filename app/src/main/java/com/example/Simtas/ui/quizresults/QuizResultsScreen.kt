@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.quizresults
+package com.example.Simtas.ui.quizresults
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -22,6 +22,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -69,6 +70,10 @@ fun QuizResultsScreen(
     onBackToNotesClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadResults()
+    }
 
     QuizResultsScreenContent(
         uiState = uiState,

@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.quizquestion
+package com.example.Simtas.ui.quizquestion
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -67,6 +67,10 @@ fun QuizQuestionScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    LaunchedEffect(Unit) {
+        viewModel.loadQuiz()
+    }
+
     LaunchedEffect(uiState.isQuizFinished) {
         if (uiState.isQuizFinished) {
             onQuizFinish()
@@ -79,13 +83,9 @@ fun QuizQuestionScreen(
         onBackClick = onBackClick,
         onMoreOptionsClick = onMoreOptionsClick,
         onOptionSelect = viewModel::selectOption,
+        onPreviousClick = viewModel::onPreviousClicked,
         onNextClick = {
-            if (uiState.currentQuestionIndex >= uiState.totalQuestions) {
-                viewModel.onNextClicked()
-                onQuizFinish()
-            } else {
-                viewModel.onNextClicked()
-            }
+            viewModel.onNextClicked(onQuizFinish = onQuizFinish)
         }
     )
 }
@@ -97,6 +97,7 @@ fun QuizQuestionScreenContent(
     onBackClick: () -> Unit = {},
     onMoreOptionsClick: () -> Unit = {},
     onOptionSelect: (String) -> Unit = {},
+    onPreviousClick: () -> Unit = {},
     onNextClick: () -> Unit = {}
 ) {
     Surface(
@@ -188,32 +189,98 @@ fun QuizQuestionScreenContent(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Next Button
-                Button(
-                    onClick = onNextClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(27.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = PurplePrimary
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
-                ) {
+                if (uiState.currentQuestionIndex > 1) {
+                    // Two buttons: Previous + Next / Submit
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Canvas(modifier = Modifier.size(18.dp)) {
-                            drawRightArrow(Color.White)
+                        Button(
+                            onClick = onPreviousClick,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(54.dp),
+                            shape = RoundedCornerShape(27.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, PurplePrimary),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Canvas(modifier = Modifier.size(16.dp)) {
+                                    drawBackArrow(PurplePrimary)
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Previous",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PurplePrimary
+                                )
+                            }
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Next",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+
+                        val isLastQuestion = uiState.currentQuestionIndex >= uiState.totalQuestions
+                        Button(
+                            onClick = onNextClick,
+                            modifier = Modifier
+                                .weight(1.3f)
+                                .height(54.dp),
+                            shape = RoundedCornerShape(27.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PurplePrimary
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = if (isLastQuestion) "Submit Quiz" else "Next",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Canvas(modifier = Modifier.size(16.dp)) {
+                                    drawRightArrow(Color.White)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    val isLastQuestion = uiState.currentQuestionIndex >= uiState.totalQuestions
+                    Button(
+                        onClick = onNextClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                        shape = RoundedCornerShape(27.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PurplePrimary
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = if (isLastQuestion) "Submit Quiz" else "Next",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Canvas(modifier = Modifier.size(18.dp)) {
+                                drawRightArrow(Color.White)
+                            }
+                        }
                     }
                 }
             }

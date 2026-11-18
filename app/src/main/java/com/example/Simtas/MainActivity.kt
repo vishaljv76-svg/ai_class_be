@@ -64,6 +64,7 @@ import com.example.Simtas.ui.splash.SplashScreen
 import com.example.Simtas.ui.subjects.SubjectSelectionScreen
 import com.example.Simtas.ui.theme.AIBasedClassNotesAppTheme
 import com.example.Simtas.ui.theme.PurplePrimary
+import com.example.Simtas.ui.theme.SmartNotesAppBackground
 import com.example.Simtas.ui.theme.TextDarkPrimary
 import com.example.Simtas.ui.theme.TextMuted
 import com.example.Simtas.ui.theme.ThemeManager
@@ -111,7 +112,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             val currentThemeMode by ThemeManager.themeMode.collectAsState()
             AIBasedClassNotesAppTheme(themeMode = currentThemeMode) {
-                MainAppNavigation()
+                SmartNotesAppBackground {
+                    MainAppNavigation()
+                }
             }
         }
     }

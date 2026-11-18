@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.theme
+package com.example.Simtas.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
@@ -6,8 +6,12 @@ import androidx.compose.ui.graphics.Color
 val PurplePrimary = Color(0xFF674AD9)
 val PurpleSecondary = Color(0xFF6E5BC8)
 
-// Dynamic theme colors that automatically switch between Light and Dark modes
+// Dynamic theme colors that automatically switch between Light and Dark modes.
+// SplashBackground is transparent to allow the shared smartnotes_app_background.png to shine through all screens.
 val SplashBackground: Color
+    get() = Color.Transparent
+
+val SplashSolidBackground: Color
     get() = if (ThemeManager.isDark()) Color(0xFF13111C) else Color(0xFFF1EEFF)
 
 val TextDarkPrimary: Color

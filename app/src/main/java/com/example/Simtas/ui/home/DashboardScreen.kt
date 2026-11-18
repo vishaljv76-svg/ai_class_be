@@ -8,6 +8,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,12 +22,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,52 +47,64 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.Simtas.R
 import com.example.Simtas.ui.theme.AIBasedClassNotesAppTheme
 import com.example.Simtas.ui.theme.CardBg
 import com.example.Simtas.ui.theme.InnerCircleBg
-import com.example.Simtas.ui.theme.OuterRingBorder
-import com.example.Simtas.ui.theme.PurplePrimary
 import com.example.Simtas.ui.theme.PurpleSecondary
-import com.example.Simtas.ui.theme.SplashBackground
 import com.example.Simtas.ui.theme.TextDarkPrimary
 import com.example.Simtas.ui.theme.TextMuted
 import com.example.Simtas.ui.theme.TextSubtitle
 import com.example.Simtas.ui.theme.ThemeManager
 
-// --- Luxury Lavender AI Color Palette & Helpers ---
+// ============================================================================
+// LUXURY PASTEL LAVENDER & VIBRANT PURPLE PALETTE
+// ============================================================================
 private val LuxuryVioletPrimary = Color(0xFF6C5CE7)
 private val LuxuryPurpleDeep = Color(0xFF5B3DE8)
 private val LuxuryElectricViolet = Color(0xFF8B5CF6)
 private val LuxuryLilacGlow = Color(0xFFA78BFA)
 private val LuxurySoftLavender = Color(0xFFEDE9FE)
+private val BrightOrangeAccent = Color(0xFFFF7A00)
+
+private val PastelLavenderBg: Color
+    get() = Color.Transparent
 
 private val CardBorderColor: Color
-    get() = if (ThemeManager.isDark()) Color(0xFF332B52) else Color(0xFFE9D5FF).copy(alpha = 0.8f)
+    get() = if (ThemeManager.isDark()) Color(0xFF332B52) else Color(0xFFEDE7F6)
 
 private val DividerSubtleColor: Color
     get() = if (ThemeManager.isDark()) Color(0xFF2E2548) else Color(0xFFF1EDFC)
 
-private val ToolkitRecordBg: Color
-    get() = if (ThemeManager.isDark()) Color(0xFF221A3A) else Color(0xFFF7F4FF)
-
-private val ToolkitUploadBg: Color
-    get() = if (ThemeManager.isDark()) Color(0xFF1B223D) else Color(0xFFEFF5FF)
-
-private val ToolkitNotesBg: Color
-    get() = if (ThemeManager.isDark()) Color(0xFF201B38) else Color(0xFFF5F1FF)
+// Pastel Toolkit Card Fills
+private val ToolkitFlashcardsBg: Color
+    get() = if (ThemeManager.isDark()) Color(0xFF231A3A) else Color(0xFFF7F2FF)
 
 private val ToolkitQuizBg: Color
-    get() = if (ThemeManager.isDark()) Color(0xFF261936) else Color(0xFFFAF2FE)
+    get() = if (ThemeManager.isDark()) Color(0xFF281938) else Color(0xFFFAF1FD)
 
-/**
- * Home Dashboard Screen adhering to MVVM architecture.
- * Preserves 100% of existing signatures, callbacks and real ViewModel data.
- */
+private val ToolkitRecordBg: Color
+    get() = if (ThemeManager.isDark()) Color(0xFF221A3A) else Color(0xFFF6F3FE)
+
+private val ToolkitUploadBg: Color
+    get() = if (ThemeManager.isDark()) Color(0xFF19233C) else Color(0xFFEFF6FF)
+
+private val ToolkitNotesBg: Color
+    get() = if (ThemeManager.isDark()) Color(0xFF1F1B38) else Color(0xFFF5F1FF)
+
+private val ToolkitCopilotBg: Color
+    get() = if (ThemeManager.isDark()) Color(0xFF1A223B) else Color(0xFFF0FDF4)
+
+// ============================================================================
+// ROOT DASHBOARD SCREEN (MVVM ARCHITECTURE)
+// ============================================================================
 @Composable
 fun DashboardScreen(
     modifier: Modifier = Modifier,
@@ -160,19 +173,19 @@ fun DashboardScreenContent(
 ) {
     Surface(
         modifier = modifier.fillMaxSize(),
-        color = SplashBackground
+        color = PastelLavenderBg
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Ambient Luxury Lavender Background Glow behind the header
+            // Ambient Soft Lavender Background Glow behind the top header
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(260.dp)
+                    .height(300.dp)
             ) {
                 val isDark = ThemeManager.isDark()
                 val glowCenter = Offset(size.width * 0.85f, size.height * 0.15f)
-                val glowRadius = size.width * 0.7f
-                val glowColor = if (isDark) Color(0xFF6C5CE7).copy(alpha = 0.12f) else Color(0xFFDDD6FE).copy(alpha = 0.45f)
+                val glowRadius = size.width * 0.80f
+                val glowColor = if (isDark) Color(0xFF6C5CE7).copy(alpha = 0.14f) else Color(0xFFDDD6FE).copy(alpha = 0.50f)
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(glowColor, Color.Transparent),
@@ -187,39 +200,38 @@ fun DashboardScreenContent(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .statusBarsPadding()
                     .padding(horizontal = 20.dp)
                     .padding(bottom = 84.dp)
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.Start
             ) {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // 1. Top Header Bar with Brand Badge & Bell Icon
-                TopDashboardHeader(onNotificationClick = onNotificationClick)
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                // 2. User Greeting & Avatar with Luxury Violet Gradient Ring
-                UserGreetingRow(
+                // 1. TOP HEADER: Circular student avatar, "Hi, [userName]!", notification & settings
+                TopHeaderBar(
                     userName = uiState.userName,
+                    userInitials = uiState.userInitials,
                     dateText = uiState.dateText,
-                    userInitials = uiState.userInitials
+                    onNotificationClick = onNotificationClick,
+                    onProfileClick = { onTabSelect(HomeBottomTab.Profile) }
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // 3. Featured AI Study Assistant Luxury Card
-                AiStudyAssistantBanner(
+                // 2. FEATURED AI STUDY COPILOT BANNER: Purple gradient + 3D mascot duo + Ask AI button
+                AiStudyCopilotBanner(
+                    userName = uiState.userName,
                     onAiQuizClick = onAiQuizClick,
                     onRecordLectureClick = onRecordLectureClick,
                     onAiCopilotClick = onAiCopilotClick,
                     onFlashcardsClick = onFlashcardsClick
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(22.dp))
 
-                // 4. Study Overview Metrics Card (Real ViewModel Data Only)
-                MetricsOverviewCard(
+                // 3. STUDY OVERVIEW: Large clean white card with real statistics (Total Notes, Subjects, Quizzes)
+                StudyOverviewSection(
                     totalNotes = uiState.totalNotes,
                     subjectsCount = uiState.subjectsCount,
                     quizzesCount = uiState.quizzesCount
@@ -227,40 +239,51 @@ fun DashboardScreenContent(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 5. Section Header: Your Study Toolkit
+                // 4. STUDY TOOLKIT: Section Header
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp, 16.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(LuxuryVioletPrimary)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp, 16.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(LuxuryVioletPrimary)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Study Toolkit",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = TextDarkPrimary
+                        )
+                    }
+
                     Text(
-                        text = "Your Study Toolkit",
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextDarkPrimary
+                        text = "All Tools",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LuxuryVioletPrimary
                     )
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 6. Study Toolkit Grid
-                ToolkitGridSection(
+                // 5. STUDY TOOLKIT: 2-Column Card Layout with 3D Mascot Illustrations
+                ToolkitTwoColumnGrid(
                     onRecordLectureClick = onRecordLectureClick,
                     onUploadAudioClick = onUploadAudioClick,
                     onMyNotesClick = onMyNotesClick,
                     onAiQuizClick = onAiQuizClick,
-                    onFlashcardsClick = onFlashcardsClick
+                    onFlashcardsClick = onFlashcardsClick,
+                    onAiCopilotClick = onAiCopilotClick
                 )
 
                 Spacer(modifier = Modifier.height(26.dp))
 
-                // 7. Recent Notes Section Header
+                // 6. CONTINUE LEARNING: Section Header with "View all ›"
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -275,9 +298,9 @@ fun DashboardScreenContent(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Pick up where you left off",
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = "Continue Learning",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
                             color = TextDarkPrimary
                         )
                     }
@@ -300,7 +323,7 @@ fun DashboardScreenContent(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 8. Recent Notes List (Real Data with Graceful Empty State)
+                // 7. CONTINUE LEARNING: Real ViewModel Notes List or Empty State
                 if (uiState.recentNotes.isEmpty()) {
                     EmptyRecentNotesCard(onRecordLectureClick = onRecordLectureClick)
                 } else {
@@ -320,7 +343,7 @@ fun DashboardScreenContent(
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
-            // 9. Floating Luxury Bottom Navigation Bar
+            // 8. FLOATING LUXURY BOTTOM NAVIGATION BAR
             HomeBottomNavigationBar(
                 selectedTab = uiState.selectedTab,
                 onTabSelect = onTabSelect,
@@ -330,184 +353,153 @@ fun DashboardScreenContent(
     }
 }
 
-/**
- * Top Dashboard Header with App Brand Badge & Notification Bell with unread indicator
- */
+// ============================================================================
+// 1. TOP HEADER BAR: Circular Avatar, Greeting & Action Buttons
+// ============================================================================
 @Composable
-private fun TopDashboardHeader(onNotificationClick: () -> Unit) {
+private fun TopHeaderBar(
+    userName: String,
+    userInitials: String,
+    dateText: String,
+    onNotificationClick: () -> Unit,
+    onProfileClick: () -> Unit
+) {
+    val displayName = userName.trim().ifBlank {
+        com.example.Simtas.data.remote.SessionManager.getUserName().trim()
+    }
+    val greeting = if (displayName.isNotBlank()) "Hi, $displayName!" else "Hi there!"
+    val initials = userInitials.ifBlank {
+        com.example.Simtas.data.remote.SessionManager.computeInitials(displayName).ifBlank { "AM" }
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Left: Circular Student Avatar + User Greeting & Date
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            // Circular Student Avatar with Gradient Ring
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(50.dp)
+                    .clip(CircleShape)
                     .background(
-                        Brush.linearGradient(
-                            listOf(LuxuryPurpleDeep, LuxuryElectricViolet)
+                        Brush.sweepGradient(
+                            listOf(
+                                LuxuryVioletPrimary,
+                                LuxuryLilacGlow,
+                                LuxuryElectricViolet,
+                                LuxuryPurpleDeep,
+                                LuxuryVioletPrimary
+                            )
                         )
                     )
+                    .padding(2.5.dp)
+                    .clickable { onProfileClick() }
             ) {
-                Canvas(modifier = Modifier.size(20.dp)) {
-                    drawSparkleStarIcon(Color.White)
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                        .background(CardBg)
+                ) {
+                    Text(
+                        text = initials,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = LuxuryVioletPrimary
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             Column {
                 Text(
-                    text = "SmartNotes AI",
-                    fontSize = 18.sp,
+                    text = greeting,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = TextDarkPrimary
+                    color = TextDarkPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "AI-Powered Learning Suite",
-                    fontSize = 10.sp,
+                    text = "Ready to excel today?",
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = TextMuted
                 )
             }
         }
 
-        // Notification Bell Icon with Subtle Outer Ring & Unread Dot
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(CardBg)
-                .border(1.dp, CardBorderColor, CircleShape)
-                .clickable { onNotificationClick() }
+        Spacer(modifier = Modifier.width(10.dp))
+
+        // Right: Notification Bell & Profile Settings Action Buttons
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Canvas(modifier = Modifier.size(20.dp)) {
-                drawBellIcon(TextDarkPrimary)
-            }
-            // Glowing Unread Indicator Dot
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .align(Alignment.TopEnd)
-                    .padding(top = 8.dp, end = 8.dp)
-                    .clip(CircleShape)
-                    .background(LuxuryVioletPrimary)
-            )
-        }
-    }
-}
-
-/**
- * User Greeting Row with Dynamic Date Capsule and Luxury Avatar Ring
- */
-@Composable
-private fun UserGreetingRow(
-    userName: String,
-    dateText: String,
-    userInitials: String
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            // Date Capsule Pill
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(InnerCircleBg)
-                    .border(1.dp, CardBorderColor, RoundedCornerShape(16.dp))
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Canvas(modifier = Modifier.size(10.dp)) {
-                        drawSparkleStarIcon(LuxuryVioletPrimary)
-                    }
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = dateText,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextSubtitle
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            val displayName = userName.trim().ifBlank { com.example.Simtas.data.remote.SessionManager.getUserName().trim() }
-            val greeting = if (displayName.isNotBlank()) "Hi, $displayName!" else "Hi there!"
-            Text(
-                text = greeting,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = TextDarkPrimary
-            )
-
-            Spacer(modifier = Modifier.height(2.dp))
-
-            Text(
-                text = "Your intelligent learning workspace is ready.",
-                fontSize = 12.sp,
-                color = TextMuted
-            )
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // Luxury Avatar Badge with Gradient Ring
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(54.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.sweepGradient(
-                        listOf(
-                            LuxuryVioletPrimary,
-                            LuxuryLilacGlow,
-                            LuxuryElectricViolet,
-                            LuxuryPurpleDeep,
-                            LuxuryVioletPrimary
-                        )
-                    )
-                )
-                .padding(2.5.dp)
-        ) {
+            // Notification Bell with Unread Dot
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .fillMaxSize()
+                    .size(42.dp)
                     .clip(CircleShape)
                     .background(CardBg)
+                    .border(1.dp, CardBorderColor, CircleShape)
+                    .clickable { onNotificationClick() }
             ) {
-                Text(
-                    text = userInitials.ifEmpty { "AM" },
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = LuxuryVioletPrimary
+                Canvas(modifier = Modifier.size(20.dp)) {
+                    drawBellIcon(TextDarkPrimary)
+                }
+                // Glowing Violet Unread Dot
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .align(Alignment.TopEnd)
+                        .padding(top = 8.dp, end = 8.dp)
+                        .clip(CircleShape)
+                        .background(LuxuryVioletPrimary)
                 )
+            }
+
+            // Profile / Settings Button
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(CardBg)
+                    .border(1.dp, CardBorderColor, CircleShape)
+                    .clickable { onProfileClick() }
+            ) {
+                Canvas(modifier = Modifier.size(20.dp)) {
+                    drawGearIcon(TextDarkPrimary)
+                }
             }
         }
     }
 }
 
-/**
- * Dedicated AI Study Assistant Luxury Card with animated glowing badge and quick actions
- */
+// ============================================================================
+// 2. FEATURED AI STUDY COPILOT BANNER (PURPLE GRADIENT & 3D MASCOT DUO)
+// ============================================================================
 @Composable
-private fun AiStudyAssistantBanner(
+private fun AiStudyCopilotBanner(
+    userName: String,
     onAiQuizClick: () -> Unit,
     onRecordLectureClick: () -> Unit,
     onAiCopilotClick: () -> Unit = {},
     onFlashcardsClick: () -> Unit = {}
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "AiPulse")
+    val infiniteTransition = rememberInfiniteTransition(label = "CopilotTransition")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 0.82f,
         targetValue = 1f,
@@ -518,24 +510,34 @@ private fun AiStudyAssistantBanner(
         label = "pulseScale"
     )
 
-    val shape = RoundedCornerShape(24.dp)
+    val mascotBob by infiniteTransition.animateFloat(
+        initialValue = -4f,
+        targetValue = 4f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "mascotBob"
+    )
+
+    val shape = RoundedCornerShape(26.dp)
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .shadow(
-                elevation = 8.dp,
+                elevation = 10.dp,
                 shape = shape,
-                ambientColor = LuxuryPurpleDeep.copy(alpha = 0.25f),
-                spotColor = LuxuryElectricViolet.copy(alpha = 0.35f)
+                ambientColor = LuxuryPurpleDeep.copy(alpha = 0.30f),
+                spotColor = LuxuryElectricViolet.copy(alpha = 0.45f)
             )
             .clip(shape)
             .background(
                 Brush.linearGradient(
                     colors = listOf(
-                        Color(0xFF4C30D4),
-                        Color(0xFF6C5CE7),
-                        Color(0xFF8B5CF6)
+                        Color(0xFF4A1A8F),
+                        Color(0xFF6B2FB8),
+                        Color(0xFF8845E0)
                     ),
                     start = Offset(0f, 0f),
                     end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
@@ -546,126 +548,157 @@ private fun AiStudyAssistantBanner(
                 Brush.linearGradient(
                     listOf(
                         Color.White.copy(alpha = 0.45f),
-                        Color.White.copy(alpha = 0.10f)
+                        Color.White.copy(alpha = 0.12f)
                     )
                 ),
                 shape
             )
-            .padding(20.dp)
+            .padding(18.dp)
     ) {
-        // Subtle Background Decorative Arc in Canvas
-        Canvas(modifier = Modifier.matchParentSize()) {
-            drawCircle(
-                color = Color.White.copy(alpha = 0.05f),
-                radius = size.width * 0.45f,
-                center = Offset(size.width * 0.95f, size.height * 0.1f)
-            )
-            drawCircle(
-                color = Color.White.copy(alpha = 0.03f),
-                radius = size.width * 0.7f,
-                center = Offset(size.width * 0.95f, size.height * 0.1f)
-            )
-        }
-
         Column(modifier = Modifier.fillMaxWidth()) {
+            // Main Top Content: Text on Left, Cute 3D Duo Mascot on Right
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Pulsing AI Pill Badge
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White.copy(alpha = 0.20f))
-                        .border(1.dp, Color.White.copy(alpha = 0.30f), RoundedCornerShape(14.dp))
-                        .clickable { onAiCopilotClick() }
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF55E6C1).copy(alpha = pulseScale))
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "AI STUDY COPILOT",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 0.8.sp,
-                            color = Color.White
-                        )
+                // Left Column: Copilot Badge, Title, Subtitle, Ask AI Button
+                Column(modifier = Modifier.weight(1f)) {
+                    // Pulsing AI Pill Badge
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color.White.copy(alpha = 0.20f))
+                            .border(1.dp, Color.White.copy(alpha = 0.30f), RoundedCornerShape(14.dp))
+                            .clickable { onAiCopilotClick() }
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF55E6C1).copy(alpha = pulseScale))
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "AI STUDY COPILOT",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.8.sp,
+                                color = Color.White
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Synthesize Your Lectures",
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "Instant structured notes, active recall flashcards, and quizzes.",
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        color = Color.White.copy(alpha = 0.90f)
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Primary Action: Ask AI Button with Bright Orange Highlight
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(BrightOrangeAccent, Color(0xFFFF5252))
+                                )
+                            )
+                            .clickable { onAiCopilotClick() }
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Canvas(modifier = Modifier.size(13.dp)) {
+                                drawSparkleStarIcon(Color.White)
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Ask AI",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
                     }
                 }
 
-                // Small Sparkle Vector Indicator
-                Canvas(modifier = Modifier.size(20.dp)) {
-                    drawSparkleStarIcon(Color.White.copy(alpha = 0.85f))
+                Spacer(modifier = Modifier.width(10.dp))
+
+                // Right Column: Large, Clearly Visible 3D Cute Dog and Cat Mascot Duo
+                Box(
+                    modifier = Modifier
+                        .size(92.dp)
+                        .graphicsLayer { translationY = mascotBob },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.mascot_duo_study),
+                        contentDescription = "AI Study Mascots Studying Together",
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Text(
-                text = "Synthesize Your Lectures",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color.White
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = "Instant structured notes, active recall flashcards, and practice quizzes powered by AI.",
-                fontSize = 12.sp,
-                lineHeight = 17.sp,
-                color = Color.White.copy(alpha = 0.90f)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Action Buttons
+            // Secondary Quick Action Chips Row
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Primary Action Button
+                // AI Quiz Chip
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.22f))
+                        .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
                         .clickable { onAiQuizClick() }
-                        .padding(horizontal = 12.dp, vertical = 9.dp)
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Canvas(modifier = Modifier.size(13.dp)) {
-                            drawSparkleStarIcon(LuxuryPurpleDeep)
+                        Canvas(modifier = Modifier.size(12.dp)) {
+                            drawSparkleStarIcon(Color.White)
                         }
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "AI Quiz",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = LuxuryPurpleDeep
+                            color = Color.White
                         )
                     }
                 }
 
-                // AI Flashcards Button
+                // Flashcards Chip
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(Color.White.copy(alpha = 0.22f))
-                        .border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
+                        .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
                         .clickable { onFlashcardsClick() }
-                        .padding(horizontal = 12.dp, vertical = 9.dp)
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Canvas(modifier = Modifier.size(13.dp)) {
+                        Canvas(modifier = Modifier.size(12.dp)) {
                             drawSparkleStarIcon(Color.White)
                         }
                         Spacer(modifier = Modifier.width(4.dp))
@@ -678,18 +711,18 @@ private fun AiStudyAssistantBanner(
                     }
                 }
 
-                // Secondary Action Button
+                // Record Chip
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(Color.White.copy(alpha = 0.18f))
-                        .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                        .border(1.dp, Color.White.copy(alpha = 0.30f), RoundedCornerShape(12.dp))
                         .clickable { onRecordLectureClick() }
-                        .padding(horizontal = 10.dp, vertical = 9.dp)
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Canvas(modifier = Modifier.size(13.dp)) {
+                        Canvas(modifier = Modifier.size(12.dp)) {
                             drawMicrophoneIcon(Color.White)
                         }
                         Spacer(modifier = Modifier.width(4.dp))
@@ -701,45 +734,21 @@ private fun AiStudyAssistantBanner(
                         )
                     }
                 }
-
-                // AI Copilot Chat Action Button
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White.copy(alpha = 0.22f))
-                        .border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
-                        .clickable { onAiCopilotClick() }
-                        .padding(horizontal = 10.dp, vertical = 9.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Canvas(modifier = Modifier.size(13.dp)) {
-                            drawSparkleStarIcon(Color.White)
-                        }
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Ask AI",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                }
             }
         }
     }
 }
 
-/**
- * Study Overview Metrics Card using real data from the ViewModel.
- */
+// ============================================================================
+// 3. STUDY OVERVIEW SECTION (REAL VIEWMODEL DATA STATISTICS)
+// ============================================================================
 @Composable
-private fun MetricsOverviewCard(
+private fun StudyOverviewSection(
     totalNotes: Int,
     subjectsCount: Int,
     quizzesCount: Int
 ) {
-    val shape = RoundedCornerShape(22.dp)
+    val shape = RoundedCornerShape(24.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -754,29 +763,28 @@ private fun MetricsOverviewCard(
             .border(1.dp, CardBorderColor, shape)
             .padding(18.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+        Column {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "STUDY OVERVIEW",
-                    fontSize = 11.sp,
+                    text = "Study Overview",
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 1.sp,
-                    color = TextSubtitle
+                    color = TextDarkPrimary
                 )
 
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(InnerCircleBg)
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = "Synced",
-                        fontSize = 10.sp,
+                        text = "Real-Time Stats",
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = LuxuryVioletPrimary
                     )
@@ -798,7 +806,7 @@ private fun MetricsOverviewCard(
                     modifier = Modifier.weight(1f)
                 )
 
-                // Divider
+                // Divider Line
                 Box(
                     modifier = Modifier
                         .width(1.dp)
@@ -814,7 +822,7 @@ private fun MetricsOverviewCard(
                     modifier = Modifier.weight(1f)
                 )
 
-                // Divider
+                // Divider Line
                 Box(
                     modifier = Modifier
                         .width(1.dp)
@@ -848,7 +856,7 @@ private fun LuxuryMetricItem(
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(34.dp)
+                .size(36.dp)
                 .clip(CircleShape)
                 .background(InnerCircleBg)
         ) {
@@ -877,93 +885,118 @@ private fun LuxuryMetricItem(
     }
 }
 
-/**
- * 2x2 Study Toolkit Grid Section with delicate multi-tone lavender fills
- */
+// ============================================================================
+// 4. STUDY TOOLKIT: TWO-COLUMN GRID WITH ILLUSTRATED FEATURE CARDS
+// ============================================================================
 @Composable
-private fun ToolkitGridSection(
+private fun ToolkitTwoColumnGrid(
     onRecordLectureClick: () -> Unit,
     onUploadAudioClick: () -> Unit,
     onMyNotesClick: () -> Unit,
     onAiQuizClick: () -> Unit,
-    onFlashcardsClick: () -> Unit = {}
+    onFlashcardsClick: () -> Unit,
+    onAiCopilotClick: () -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
+        // ROW 1: Record Lecture (Dog with headphones) & Upload Audio (Cat with books)
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            LuxuryToolkitCard(
+            ToolkitIllustratedCard(
                 title = "Record Lecture",
-                subtitle = "Capture in real time",
+                subtitle = "Live audio & transcript",
                 bgColor = ToolkitRecordBg,
                 accentColor = LuxuryPurpleDeep,
+                imageRes = R.drawable.mascot_dog_headphones,
+                contentDescription = "Dog wearing headphones for lecture recording",
                 modifier = Modifier.weight(1f),
-                onClick = onRecordLectureClick,
-                icon = { drawMicrophoneIcon(LuxuryPurpleDeep) }
+                onClick = onRecordLectureClick
             )
 
-            LuxuryToolkitCard(
+            ToolkitIllustratedCard(
                 title = "Upload Audio",
-                subtitle = "Import voice memos",
+                subtitle = "Import lecture files",
                 bgColor = ToolkitUploadBg,
                 accentColor = Color(0xFF3B82F6),
+                imageRes = R.drawable.mascot_cat_books,
+                contentDescription = "Cat with books for audio upload",
                 modifier = Modifier.weight(1f),
-                onClick = onUploadAudioClick,
-                icon = { drawUploadIcon(Color(0xFF3B82F6)) }
+                onClick = onUploadAudioClick
             )
         }
 
+        // ROW 2: My Notes (Cat reading) & AI Quiz (Dog with star/trophy)
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            LuxuryToolkitCard(
+            ToolkitIllustratedCard(
                 title = "My Notes",
-                subtitle = "Sorted by subjects",
+                subtitle = "All subjects & topics",
                 bgColor = ToolkitNotesBg,
                 accentColor = LuxuryVioletPrimary,
+                imageRes = R.drawable.mascot_cat_study,
+                contentDescription = "Cat reading notes",
                 modifier = Modifier.weight(1f),
-                onClick = onMyNotesClick,
-                icon = { drawNotePadIcon(LuxuryVioletPrimary) }
+                onClick = onMyNotesClick
             )
 
-            LuxuryToolkitCard(
+            ToolkitIllustratedCard(
                 title = "AI Quiz",
-                subtitle = "Active knowledge test",
+                subtitle = "Practice & mock exams",
                 bgColor = ToolkitQuizBg,
                 accentColor = LuxuryElectricViolet,
+                imageRes = R.drawable.mascot_dog_trophy,
+                contentDescription = "Dog with star trophy for AI Quiz",
                 modifier = Modifier.weight(1f),
-                onClick = onAiQuizClick,
-                icon = { drawSparkleStarIcon(LuxuryElectricViolet) }
+                onClick = onAiQuizClick
             )
         }
 
-        // Full width luxury card for AI Smart Flashcards
-        LuxuryToolkitCard(
-            title = "AI Smart Flashcards",
-            subtitle = "Active recall & review on any topic",
-            bgColor = ToolkitRecordBg,
-            accentColor = LuxuryVioletPrimary,
-            modifier = Modifier.fillMaxWidth(),
-            onClick = onFlashcardsClick,
-            icon = { drawSparkleStarIcon(LuxuryVioletPrimary) }
-        )
+        // ROW 3: AI Flashcards (Cat studying) & Ask AI (Dog with laptop)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            ToolkitIllustratedCard(
+                title = "AI Flashcards",
+                subtitle = "Active recall decks",
+                bgColor = ToolkitFlashcardsBg,
+                accentColor = LuxuryPurpleDeep,
+                imageRes = R.drawable.mascot_cat_study,
+                contentDescription = "Cat studying flashcards",
+                modifier = Modifier.weight(1f),
+                onClick = onFlashcardsClick
+            )
+
+            ToolkitIllustratedCard(
+                title = "Ask AI",
+                subtitle = "Tutor & instant answers",
+                bgColor = ToolkitCopilotBg,
+                accentColor = Color(0xFF10B981),
+                imageRes = R.drawable.mascot_dog_laptop,
+                contentDescription = "Dog with laptop for Ask AI",
+                modifier = Modifier.weight(1f),
+                onClick = onAiCopilotClick
+            )
+        }
     }
 }
 
 @Composable
-private fun LuxuryToolkitCard(
+private fun ToolkitIllustratedCard(
     title: String,
     subtitle: String,
     bgColor: Color,
     accentColor: Color,
+    imageRes: Int,
+    contentDescription: String,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-    icon: DrawScope.() -> Unit
+    onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(20.dp)
     Box(
@@ -971,40 +1004,52 @@ private fun LuxuryToolkitCard(
             .shadow(
                 elevation = 4.dp,
                 shape = shape,
-                ambientColor = accentColor.copy(alpha = 0.06f),
-                spotColor = accentColor.copy(alpha = 0.08f)
+                ambientColor = accentColor.copy(alpha = 0.08f),
+                spotColor = accentColor.copy(alpha = 0.12f)
             )
             .clip(shape)
             .background(bgColor)
             .border(1.dp, CardBorderColor, shape)
             .clickable { onClick() }
-            .padding(16.dp)
+            .padding(14.dp)
     ) {
-        Column(horizontalAlignment = Alignment.Start) {
+        Column {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // Illustrated Mascot Badge Container
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(InnerCircleBg)
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(CardBg)
+                        .border(1.dp, CardBorderColor, RoundedCornerShape(16.dp))
                 ) {
-                    Canvas(modifier = Modifier.size(20.dp)) {
-                        icon()
-                    }
+                    Image(
+                        painter = painterResource(id = imageRes),
+                        contentDescription = contentDescription,
+                        modifier = Modifier.size(46.dp)
+                    )
                 }
 
-                // Subtle corner arrow indicator
-                Canvas(modifier = Modifier.size(12.dp)) {
-                    drawChevronRight(TextMuted)
+                // Subtle chevron right indicator
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(CardBg)
+                ) {
+                    Canvas(modifier = Modifier.size(10.dp)) {
+                        drawChevronRight(accentColor)
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Text(
                 text = title,
@@ -1013,7 +1058,7 @@ private fun LuxuryToolkitCard(
                 color = TextDarkPrimary
             )
 
-            Spacer(modifier = Modifier.height(3.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             Text(
                 text = subtitle,
@@ -1025,9 +1070,9 @@ private fun LuxuryToolkitCard(
     }
 }
 
-/**
- * Recent Note Item Card
- */
+// ============================================================================
+// 5. CONTINUE LEARNING SECTION (RECENT NOTES WITH REAL DATA)
+// ============================================================================
 @Composable
 private fun RecentNoteCardItem(
     note: RecentNoteItem,
@@ -1130,12 +1175,9 @@ private fun RecentNoteCardItem(
     }
 }
 
-/**
- * Empty Recent Notes fallback card
- */
 @Composable
 private fun EmptyRecentNotesCard(onRecordLectureClick: () -> Unit) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(20.dp)
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -1147,37 +1189,31 @@ private fun EmptyRecentNotesCard(onRecordLectureClick: () -> Unit) {
             .padding(20.dp)
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(InnerCircleBg)
-            ) {
-                Canvas(modifier = Modifier.size(22.dp)) {
-                    drawNotePadIcon(LuxuryVioletPrimary)
-                }
-            }
+            Image(
+                painter = painterResource(id = R.drawable.mascot_cat_books),
+                contentDescription = "Oliver the Study Cat",
+                modifier = Modifier.size(68.dp)
+            )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = "No notes created yet",
-                fontSize = 14.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextDarkPrimary
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "Tap here to record your first lecture",
-                fontSize = 11.sp,
+                text = "Tap here to record your first lecture with AI",
+                fontSize = 12.sp,
                 color = TextSubtitle
             )
         }
     }
 }
 
-/**
- * Floating Luxury Bottom Navigation Bar
- */
+// ============================================================================
+// 6. ELEGANT FLOATING BOTTOM NAVIGATION BAR
+// ============================================================================
 @Composable
 private fun HomeBottomNavigationBar(
     selectedTab: HomeBottomTab,
@@ -1259,8 +1295,9 @@ private fun BottomTabItem(
     }
 }
 
-// --- Custom Canvas Graphics Helpers ---
-
+// ============================================================================
+// 7. CANVAS VECTOR GRAPHICS HELPERS
+// ============================================================================
 private fun DrawScope.drawBellIcon(color: Color) {
     val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
     val path = Path().apply {
@@ -1296,6 +1333,33 @@ private fun DrawScope.drawBellIcon(color: Color) {
         size = Size(size.width * 0.2f, size.height * 0.18f),
         style = stroke
     )
+}
+
+private fun DrawScope.drawGearIcon(color: Color) {
+    val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
+    drawCircle(
+        color = color,
+        radius = size.width * 0.22f,
+        center = Offset(size.width * 0.5f, size.height * 0.5f),
+        style = stroke
+    )
+    val numTeeth = 6
+    val cx = size.width * 0.5f
+    val cy = size.height * 0.5f
+    val rInner = size.width * 0.30f
+    val rOuter = size.width * 0.44f
+    for (i in 0 until numTeeth) {
+        val angle = (i * (2 * Math.PI / numTeeth)).toFloat()
+        val cosA = Math.cos(angle.toDouble()).toFloat()
+        val sinA = Math.sin(angle.toDouble()).toFloat()
+        drawLine(
+            color = color,
+            start = Offset(cx + rInner * cosA, cy + rInner * sinA),
+            end = Offset(cx + rOuter * cosA, cy + rOuter * sinA),
+            strokeWidth = 2.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+    }
 }
 
 private fun DrawScope.drawNoteIconSmall(color: Color) {
@@ -1350,43 +1414,6 @@ private fun DrawScope.drawMicrophoneIcon(color: Color) {
         strokeWidth = 1.8.dp.toPx(),
         cap = StrokeCap.Round
     )
-}
-
-private fun DrawScope.drawUploadIcon(color: Color) {
-    val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
-    val path = Path().apply {
-        moveTo(size.width * 0.2f, size.height * 0.55f)
-        lineTo(size.width * 0.2f, size.height * 0.8f)
-        lineTo(size.width * 0.8f, size.height * 0.8f)
-        lineTo(size.width * 0.8f, size.height * 0.55f)
-    }
-    drawPath(path = path, color = color, style = stroke)
-    drawLine(
-        color = color,
-        start = Offset(size.width * 0.5f, size.height * 0.65f),
-        end = Offset(size.width * 0.5f, size.height * 0.2f),
-        strokeWidth = 1.8.dp.toPx(),
-        cap = StrokeCap.Round
-    )
-    val headPath = Path().apply {
-        moveTo(size.width * 0.35f, size.height * 0.35f)
-        lineTo(size.width * 0.5f, size.height * 0.2f)
-        lineTo(size.width * 0.65f, size.height * 0.35f)
-    }
-    drawPath(path = headPath, color = color, style = stroke)
-}
-
-private fun DrawScope.drawNotePadIcon(color: Color) {
-    val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
-    drawRoundRect(
-        color = color,
-        topLeft = Offset(size.width * 0.2f, size.height * 0.15f),
-        size = Size(size.width * 0.6f, size.height * 0.7f),
-        cornerRadius = CornerRadius(4.dp.toPx()),
-        style = stroke
-    )
-    drawLine(color = color, start = Offset(size.width * 0.35f, size.height * 0.38f), end = Offset(size.width * 0.65f, size.height * 0.38f), strokeWidth = 1.8.dp.toPx(), cap = StrokeCap.Round)
-    drawLine(color = color, start = Offset(size.width * 0.35f, size.height * 0.58f), end = Offset(size.width * 0.55f, size.height * 0.58f), strokeWidth = 1.8.dp.toPx(), cap = StrokeCap.Round)
 }
 
 private fun DrawScope.drawSparkleStarIcon(color: Color) {

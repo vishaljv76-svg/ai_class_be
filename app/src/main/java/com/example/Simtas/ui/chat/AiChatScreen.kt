@@ -542,7 +542,7 @@ fun AiChatScreen(
         ModalBottomSheet(
             onDismissRequest = { showHistorySheet = false },
             sheetState = sheetState,
-            containerColor = SplashBackground,
+            containerColor = CardBg,
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
         ) {
             Column(
@@ -1139,9 +1139,9 @@ private fun DrawScope.drawTrashIcon(color: Color) {
     val bodyPath = Path().apply {
         moveTo(w * 0.28f, h * 0.32f)
         lineTo(w * 0.33f, h * 0.82f)
-        quadraticBezierTo(w * 0.34f, h * 0.86f, w * 0.38f, h * 0.86f)
+        quadraticTo(w * 0.34f, h * 0.86f, w * 0.38f, h * 0.86f)
         lineTo(w * 0.62f, h * 0.86f)
-        quadraticBezierTo(w * 0.66f, h * 0.86f, w * 0.67f, h * 0.82f)
+        quadraticTo(w * 0.66f, h * 0.86f, w * 0.67f, h * 0.82f)
         lineTo(w * 0.72f, h * 0.32f)
     }
     drawPath(bodyPath, color = color, style = Stroke(width = strokeWidth))

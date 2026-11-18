@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.Simtas.ui.detailednotes.DetailedNotesUiState
+import com.example.Simtas.ui.theme.CardBg
 import com.example.Simtas.ui.theme.PurplePrimary
 import com.example.Simtas.ui.theme.SplashBackground
 import com.example.Simtas.ui.theme.TextDarkPrimary
@@ -118,7 +119,7 @@ fun QaAssistantBottomSheet(
             onDismissRequest()
         },
         sheetState = sheetState,
-        containerColor = SplashBackground,
+        containerColor = CardBg,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(

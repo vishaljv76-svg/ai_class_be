@@ -1444,8 +1444,8 @@ private fun AskFollowUpQuestionCard(
                 },
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = SplashBackground,
-                    unfocusedContainerColor = SplashBackground,
+                    focusedContainerColor = PlayerCardBg,
+                    unfocusedContainerColor = PlayerCardBg,
                     focusedBorderColor = PurplePrimary,
                     unfocusedBorderColor = Color.Transparent,
                     focusedTextColor = TextDarkPrimary,

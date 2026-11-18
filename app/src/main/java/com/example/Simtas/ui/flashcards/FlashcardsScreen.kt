@@ -132,7 +132,7 @@ fun FlashcardsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(PurpleBgGradient)
+            .background(Color.Transparent)
     ) {
         // Ambient background glowing mesh
         AmbientStudyGlowOverlay()

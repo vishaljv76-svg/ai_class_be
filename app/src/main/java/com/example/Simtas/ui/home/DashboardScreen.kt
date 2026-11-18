@@ -101,6 +101,7 @@ fun DashboardScreen(
     onUploadAudioClick: () -> Unit = {},
     onMyNotesClick: () -> Unit = {},
     onAiQuizClick: () -> Unit = {},
+    onFlashcardsClick: () -> Unit = {},
     onViewAllNotesClick: () -> Unit = {},
     onNoteClick: (String) -> Unit = {},
     onTabSelect: (HomeBottomTab) -> Unit = {},
@@ -128,6 +129,7 @@ fun DashboardScreen(
             viewModel.onAiQuizClicked()
             onAiQuizClick()
         },
+        onFlashcardsClick = onFlashcardsClick,
         onViewAllNotesClick = onViewAllNotesClick,
         onNoteClick = { noteId ->
             viewModel.onNoteItemClicked(noteId)
@@ -150,6 +152,7 @@ fun DashboardScreenContent(
     onUploadAudioClick: () -> Unit = {},
     onMyNotesClick: () -> Unit = {},
     onAiQuizClick: () -> Unit = {},
+    onFlashcardsClick: () -> Unit = {},
     onViewAllNotesClick: () -> Unit = {},
     onNoteClick: (String) -> Unit = {},
     onTabSelect: (HomeBottomTab) -> Unit = {},
@@ -209,7 +212,8 @@ fun DashboardScreenContent(
                 AiStudyAssistantBanner(
                     onAiQuizClick = onAiQuizClick,
                     onRecordLectureClick = onRecordLectureClick,
-                    onAiCopilotClick = onAiCopilotClick
+                    onAiCopilotClick = onAiCopilotClick,
+                    onFlashcardsClick = onFlashcardsClick
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -245,12 +249,13 @@ fun DashboardScreenContent(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 6. 2x2 Study Toolkit Grid
+                // 6. Study Toolkit Grid
                 ToolkitGridSection(
                     onRecordLectureClick = onRecordLectureClick,
                     onUploadAudioClick = onUploadAudioClick,
                     onMyNotesClick = onMyNotesClick,
-                    onAiQuizClick = onAiQuizClick
+                    onAiQuizClick = onAiQuizClick,
+                    onFlashcardsClick = onFlashcardsClick
                 )
 
                 Spacer(modifier = Modifier.height(26.dp))
@@ -499,7 +504,8 @@ private fun UserGreetingRow(
 private fun AiStudyAssistantBanner(
     onAiQuizClick: () -> Unit,
     onRecordLectureClick: () -> Unit,
-    onAiCopilotClick: () -> Unit = {}
+    onAiCopilotClick: () -> Unit = {},
+    onFlashcardsClick: () -> Unit = {}
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "AiPulse")
     val pulseScale by infiniteTransition.animateFloat(
@@ -622,7 +628,7 @@ private fun AiStudyAssistantBanner(
 
             // Action Buttons
             Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 // Primary Action Button
@@ -632,18 +638,42 @@ private fun AiStudyAssistantBanner(
                         .clip(RoundedCornerShape(14.dp))
                         .background(Color.White)
                         .clickable { onAiQuizClick() }
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .padding(horizontal = 12.dp, vertical = 9.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Canvas(modifier = Modifier.size(14.dp)) {
+                        Canvas(modifier = Modifier.size(13.dp)) {
                             drawSparkleStarIcon(LuxuryPurpleDeep)
                         }
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "Start AI Quiz",
-                            fontSize = 12.sp,
+                            text = "AI Quiz",
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = LuxuryPurpleDeep
+                        )
+                    }
+                }
+
+                // AI Flashcards Button
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.White.copy(alpha = 0.22f))
+                        .border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
+                        .clickable { onFlashcardsClick() }
+                        .padding(horizontal = 12.dp, vertical = 9.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Canvas(modifier = Modifier.size(13.dp)) {
+                            drawSparkleStarIcon(Color.White)
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Flashcards",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
                     }
                 }
@@ -656,16 +686,16 @@ private fun AiStudyAssistantBanner(
                         .background(Color.White.copy(alpha = 0.18f))
                         .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
                         .clickable { onRecordLectureClick() }
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                        .padding(horizontal = 10.dp, vertical = 9.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Canvas(modifier = Modifier.size(14.dp)) {
+                        Canvas(modifier = Modifier.size(13.dp)) {
                             drawMicrophoneIcon(Color.White)
                         }
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "Record",
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
@@ -680,16 +710,16 @@ private fun AiStudyAssistantBanner(
                         .background(Color.White.copy(alpha = 0.22f))
                         .border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
                         .clickable { onAiCopilotClick() }
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                        .padding(horizontal = 10.dp, vertical = 9.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Canvas(modifier = Modifier.size(14.dp)) {
+                        Canvas(modifier = Modifier.size(13.dp)) {
                             drawSparkleStarIcon(Color.White)
                         }
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "Ask AI",
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
@@ -855,7 +885,8 @@ private fun ToolkitGridSection(
     onRecordLectureClick: () -> Unit,
     onUploadAudioClick: () -> Unit,
     onMyNotesClick: () -> Unit,
-    onAiQuizClick: () -> Unit
+    onAiQuizClick: () -> Unit,
+    onFlashcardsClick: () -> Unit = {}
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -910,6 +941,17 @@ private fun ToolkitGridSection(
                 icon = { drawSparkleStarIcon(LuxuryElectricViolet) }
             )
         }
+
+        // Full width luxury card for AI Smart Flashcards
+        LuxuryToolkitCard(
+            title = "AI Smart Flashcards",
+            subtitle = "Active recall & review on any topic",
+            bgColor = ToolkitRecordBg,
+            accentColor = LuxuryVioletPrimary,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onFlashcardsClick,
+            icon = { drawSparkleStarIcon(LuxuryVioletPrimary) }
+        )
     }
 }
 

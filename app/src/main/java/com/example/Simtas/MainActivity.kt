@@ -44,6 +44,7 @@ import com.example.Simtas.ui.chat.AiChatScreen
 import com.example.Simtas.ui.createnotes.CreateSmartNotesScreen
 import com.example.Simtas.ui.detailednotes.DetailedNotesScreen
 import com.example.Simtas.ui.detailednotes.DetailedNotesViewModel
+import com.example.Simtas.ui.flashcards.FlashcardsScreen
 import com.example.Simtas.ui.forgotpassword.ForgotPasswordScreen
 import com.example.Simtas.ui.home.DashboardScreen
 import com.example.Simtas.ui.home.HomeBottomTab
@@ -97,7 +98,8 @@ enum class AppScreen {
     QuizResults,
     MyNotes,
     ProfileSettings,
-    AiChat
+    AiChat,
+    Flashcards
 }
 
 class MainActivity : ComponentActivity() {
@@ -253,6 +255,9 @@ fun MainAppNavigation() {
                 onAiQuizClick = {
                     previousScreenForQuiz = AppScreen.HomeDashboard
                     currentScreen = AppScreen.QuizGenerator
+                },
+                onFlashcardsClick = {
+                    currentScreen = AppScreen.Flashcards
                 },
                 onViewAllNotesClick = {
                     currentScreen = AppScreen.MyNotes
@@ -464,6 +469,13 @@ fun MainAppNavigation() {
                 }
             )
         }
+        AppScreen.Flashcards -> {
+            FlashcardsScreen(
+                onBackClick = {
+                    currentScreen = AppScreen.HomeDashboard
+                }
+            )
+        }
     }
 
     // --- Back Navigation Handlers ---
@@ -484,7 +496,7 @@ fun MainAppNavigation() {
         currentScreen = AppScreen.StudentOnboarding
     }
 
-    BackHandler(enabled = currentScreen == AppScreen.RecordLecture || currentScreen == AppScreen.UploadLecture || currentScreen == AppScreen.GeneratedNotes || currentScreen == AppScreen.MyNotes || currentScreen == AppScreen.ProfileSettings || currentScreen == AppScreen.AiChat) {
+    BackHandler(enabled = currentScreen == AppScreen.RecordLecture || currentScreen == AppScreen.UploadLecture || currentScreen == AppScreen.GeneratedNotes || currentScreen == AppScreen.MyNotes || currentScreen == AppScreen.ProfileSettings || currentScreen == AppScreen.AiChat || currentScreen == AppScreen.Flashcards) {
         currentScreen = AppScreen.HomeDashboard
     }
 

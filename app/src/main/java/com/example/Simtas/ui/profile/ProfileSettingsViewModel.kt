@@ -12,7 +12,9 @@ import com.example.Simtas.data.remote.SessionManager
 import com.example.Simtas.data.repository.AuthRepository
 import com.example.Simtas.data.repository.ProfileRepository
 import com.example.Simtas.ui.home.HomeBottomTab
+import com.example.Simtas.ui.theme.AppFontStyle
 import com.example.Simtas.ui.theme.AppThemeMode
+import com.example.Simtas.ui.theme.FontManager
 import com.example.Simtas.ui.theme.ThemeManager
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -35,6 +37,7 @@ class ProfileSettingsViewModel : ViewModel() {
 
     init {
         val currentMode = ThemeManager.currentThemeMode
+        val currentFont = FontManager.currentFontStyle
         val currentUserId = SessionManager.getUserId()
         val cached = SessionManager.getUserProfile(currentUserId)
         val initialName = cached?.get("name") ?: SessionManager.getUserName()
@@ -49,7 +52,9 @@ class ProfileSettingsViewModel : ViewModel() {
                 semesterBadgeText = cached?.get("semester_badge") ?: "",
                 yearBadgeText = cached?.get("year_badge") ?: "",
                 selectedThemeMode = currentMode,
-                themeModeText = currentMode.displayName
+                themeModeText = currentMode.displayName,
+                selectedFontStyle = currentFont,
+                fontStyleText = currentFont.displayName
             )
         }
         loadProfile()
@@ -262,6 +267,25 @@ class ProfileSettingsViewModel : ViewModel() {
                 selectedThemeMode = mode,
                 themeModeText = mode.displayName,
                 isThemeDialogVisible = false
+            )
+        }
+    }
+
+    fun onFontClicked() {
+        _uiState.update { it.copy(isFontDialogVisible = true) }
+    }
+
+    fun onDismissFontDialog() {
+        _uiState.update { it.copy(isFontDialogVisible = false) }
+    }
+
+    fun onFontSelected(context: Context?, style: AppFontStyle) {
+        FontManager.setFontStyle(context, style)
+        _uiState.update {
+            it.copy(
+                selectedFontStyle = style,
+                fontStyleText = style.displayName,
+                isFontDialogVisible = false
             )
         }
     }

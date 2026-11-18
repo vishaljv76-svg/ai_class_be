@@ -1,6 +1,7 @@
 package com.example.Simtas.ui.profile
 
 import com.example.Simtas.ui.home.HomeBottomTab
+import com.example.Simtas.ui.theme.AppFontStyle
 import com.example.Simtas.ui.theme.AppThemeMode
 
 /**
@@ -19,6 +20,9 @@ data class ProfileSettingsUiState(
     val themeModeText: String = "Light",
     val selectedThemeMode: AppThemeMode = AppThemeMode.Light,
     val isThemeDialogVisible: Boolean = false,
+    val fontStyleText: String = "Bold Sans-Serif",
+    val selectedFontStyle: AppFontStyle = AppFontStyle.BoldSansSerif,
+    val isFontDialogVisible: Boolean = false,
     val appVersionText: String = "SmartNotes AI · v1.0.0",
     val selectedTab: HomeBottomTab = HomeBottomTab.Profile,
     val isEditing: Boolean = false,

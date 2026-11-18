@@ -1,9 +1,12 @@
 ﻿package com.example.Simtas.ui.theme
 
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme = darkColorScheme(
@@ -34,13 +37,22 @@ private val LightColorScheme = lightColorScheme(
 fun AIBasedClassNotesAppTheme(
     themeMode: AppThemeMode = ThemeManager.currentThemeMode,
     darkTheme: Boolean = ThemeManager.isDark(),
+    fontStyle: AppFontStyle = FontManager.currentFontStyle,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val typography = remember(fontStyle) { getTypography(fontStyle) }
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+        typography = typography
+    ) {
+        val baseTextStyle = LocalTextStyle.current.copy(
+            fontFamily = fontStyle.fontFamily
+        )
+        CompositionLocalProvider(
+            LocalTextStyle provides baseTextStyle,
+            content = content
+        )
+    }
 }

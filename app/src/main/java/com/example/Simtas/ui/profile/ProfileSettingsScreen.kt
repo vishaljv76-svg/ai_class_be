@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.profile
+package com.example.Simtas.ui.profile
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.Simtas.ui.home.HomeBottomTab
 import com.example.Simtas.ui.theme.AIBasedClassNotesAppTheme
+import com.example.Simtas.ui.theme.AppFontStyle
 import com.example.Simtas.ui.theme.AppThemeMode
 import com.example.Simtas.ui.theme.CardBg
 import com.example.Simtas.ui.theme.InnerCircleBg
@@ -109,6 +111,9 @@ fun ProfileSettingsScreen(
         onThemeClick = viewModel::onThemeClicked,
         onDismissThemeDialog = viewModel::onDismissThemeDialog,
         onThemeSelect = { mode -> viewModel.onThemeSelected(context, mode) },
+        onFontClick = viewModel::onFontClicked,
+        onDismissFontDialog = viewModel::onDismissFontDialog,
+        onFontSelect = { style -> viewModel.onFontSelected(context, style) },
         onEditProfileClick = {
             viewModel.onEditProfileClicked()
             onEditProfileClick()
@@ -142,6 +147,9 @@ fun ProfileSettingsScreenContent(
     onThemeClick: () -> Unit = {},
     onDismissThemeDialog: () -> Unit = {},
     onThemeSelect: (AppThemeMode) -> Unit = {},
+    onFontClick: () -> Unit = {},
+    onDismissFontDialog: () -> Unit = {},
+    onFontSelect: (AppFontStyle) -> Unit = {},
     onEditProfileClick: () -> Unit = {},
     onCancelEdit: () -> Unit = {},
     onSaveChanges: () -> Unit = {},
@@ -211,7 +219,8 @@ fun ProfileSettingsScreenContent(
                     uiState = uiState,
                     onToggleStudyReminders = onToggleStudyReminders,
                     onToggleNotesReadyAlerts = onToggleNotesReadyAlerts,
-                    onThemeClick = onThemeClick
+                    onThemeClick = onThemeClick,
+                    onFontClick = onFontClick
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -290,6 +299,15 @@ fun ProfileSettingsScreenContent(
                     currentMode = uiState.selectedThemeMode,
                     onSelectMode = onThemeSelect,
                     onDismiss = onDismissThemeDialog
+                )
+            }
+
+            // Font Style Selection Dialog
+            if (uiState.isFontDialogVisible) {
+                FontStyleSelectionDialog(
+                    currentStyle = uiState.selectedFontStyle,
+                    onSelectStyle = onFontSelect,
+                    onDismiss = onDismissFontDialog
                 )
             }
         }
@@ -694,7 +712,8 @@ private fun StudyPreferencesGroupCard(
     uiState: ProfileSettingsUiState,
     onToggleStudyReminders: (Boolean) -> Unit,
     onToggleNotesReadyAlerts: (Boolean) -> Unit,
-    onThemeClick: () -> Unit = {}
+    onThemeClick: () -> Unit = {},
+    onFontClick: () -> Unit = {}
 ) {
     val shape = RoundedCornerShape(20.dp)
     val chevronColor = TextMuted
@@ -798,6 +817,40 @@ private fun StudyPreferencesGroupCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = uiState.themeModeText,
+                        fontSize = 12.sp,
+                        color = TextMuted
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Canvas(modifier = Modifier.size(12.dp)) {
+                        drawChevronRight(chevronColor)
+                    }
+                }
+            }
+
+            // Option 4: Font Style
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onFontClick() }
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Canvas(modifier = Modifier.size(18.dp)) {
+                        drawFontTextIcon(PurplePrimary)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Font Style",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = TextDarkPrimary
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = uiState.fontStyleText,
                         fontSize = 12.sp,
                         color = TextMuted
                     )
@@ -1279,6 +1332,176 @@ private fun ThemeSelectionDialog(
                 Text(text = "Done", color = Color.White, fontWeight = FontWeight.Bold)
             }
         }
+    )
+}
+
+/**
+ * In-Place Font Style Selection Dialog with live "Hello World" typography previews.
+ */
+@Composable
+private fun FontStyleSelectionDialog(
+    currentStyle: AppFontStyle,
+    onSelectStyle: (AppFontStyle) -> Unit,
+    onDismiss: () -> Unit
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CardBg,
+        shape = RoundedCornerShape(24.dp),
+        title = {
+            Column {
+                Text(
+                    text = "Choose Font Style",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextDarkPrimary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Select typography applied across the app",
+                    fontSize = 12.sp,
+                    color = TextMuted
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                AppFontStyle.values().forEach { style ->
+                    val isSelected = style == currentStyle
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (isSelected) InnerCircleBg else CardBg)
+                            .border(
+                                width = if (isSelected) 1.5.dp else 1.dp,
+                                color = if (isSelected) PurplePrimary else OuterRingBorder,
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .clickable { onSelectStyle(style) }
+                            .padding(14.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = style.displayName,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = style.fontFamily,
+                                        color = if (isSelected) PurplePrimary else TextDarkPrimary
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = style.subtitle,
+                                        fontSize = 11.sp,
+                                        color = TextMuted
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                // Radio indicator
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(22.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isSelected) PurplePrimary else OuterRingBorder)
+                                ) {
+                                    if (isSelected) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(Color.White)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Realistic Preview Box showing "Hello World"
+                            Box(
+                                contentAlignment = Alignment.CenterStart,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(CardBg)
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (isSelected) PurplePrimary.copy(alpha = 0.35f) else OuterRingBorder,
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = style.samplePreview,
+                                        fontSize = 17.sp,
+                                        fontFamily = style.fontFamily,
+                                        fontWeight = style.previewWeight,
+                                        color = if (isSelected) PurplePrimary else TextDarkPrimary
+                                    )
+
+                                    Text(
+                                        text = "Preview",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = TextMuted
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(text = "Apply", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        }
+    )
+}
+
+private fun DrawScope.drawFontTextIcon(color: Color) {
+    drawLine(
+        color = color,
+        start = Offset(size.width * 0.2f, size.height * 0.25f),
+        end = Offset(size.width * 0.8f, size.height * 0.25f),
+        strokeWidth = 2.dp.toPx(),
+        cap = StrokeCap.Round
+    )
+    drawLine(
+        color = color,
+        start = Offset(size.width * 0.5f, size.height * 0.25f),
+        end = Offset(size.width * 0.5f, size.height * 0.78f),
+        strokeWidth = 2.dp.toPx(),
+        cap = StrokeCap.Round
+    )
+    drawLine(
+        color = color,
+        start = Offset(size.width * 0.36f, size.height * 0.78f),
+        end = Offset(size.width * 0.64f, size.height * 0.78f),
+        strokeWidth = 1.8.dp.toPx(),
+        cap = StrokeCap.Round
     )
 }
 

@@ -63,6 +63,7 @@ import com.example.Simtas.ui.signup.SignupScreen
 import com.example.Simtas.ui.splash.SplashScreen
 import com.example.Simtas.ui.subjects.SubjectSelectionScreen
 import com.example.Simtas.ui.theme.AIBasedClassNotesAppTheme
+import com.example.Simtas.ui.theme.FontManager
 import com.example.Simtas.ui.theme.PurplePrimary
 import com.example.Simtas.ui.theme.SmartNotesAppBackground
 import com.example.Simtas.ui.theme.TextDarkPrimary
@@ -108,10 +109,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         SessionManager.init(this)
         ThemeManager.init(this)
+        FontManager.init(this)
         enableEdgeToEdge()
         setContent {
             val currentThemeMode by ThemeManager.themeMode.collectAsState()
-            AIBasedClassNotesAppTheme(themeMode = currentThemeMode) {
+            val currentFontStyle by FontManager.fontStyle.collectAsState()
+            AIBasedClassNotesAppTheme(
+                themeMode = currentThemeMode,
+                fontStyle = currentFontStyle
+            ) {
                 SmartNotesAppBackground {
                     MainAppNavigation()
                 }

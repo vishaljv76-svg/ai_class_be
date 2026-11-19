@@ -22,6 +22,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.util.Base64
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -40,7 +45,9 @@ data class QaMessageItem(
     val explanation: String = "",
     val provider: String? = null,
     val isAnswered: Boolean = true,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val imageBitmap: Bitmap? = null,
+    val imageUri: String? = null
 )
 
 data class QaAssistantUiState(
@@ -55,7 +62,11 @@ data class QaAssistantUiState(
     val voiceProgress: Int = 0,
     val selectedLanguageCode: String = "en",
     val conversations: List<ChatConversationItem> = emptyList(),
-    val isLoadingConversations: Boolean = false
+    val isLoadingConversations: Boolean = false,
+    val selectedImageUri: String? = null,
+    val selectedImageBitmap: Bitmap? = null,
+    val selectedImageBase64: String? = null,
+    val selectedImageMime: String? = null
 )
 
 class QaAssistantViewModel : ViewModel() {
@@ -331,6 +342,119 @@ class QaAssistantViewModel : ViewModel() {
         releaseVoiceRecorder()
     }
 
+    // --- Image Understanding & Multimodal Handlers ---
+
+    fun onImageSelected(context: Context, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val bitmap = decodeSampledBitmapFromUri(context, uri, 1024, 1024)
+                if (bitmap != null) {
+                    val baos = ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 85, baos)
+                    val bytes = baos.toByteArray()
+                    val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                    withContext(Dispatchers.Main) {
+                        _uiState.update {
+                            it.copy(
+                                selectedImageUri = uri.toString(),
+                                selectedImageBitmap = bitmap,
+                                selectedImageBase64 = base64,
+                                selectedImageMime = "image/jpeg",
+                                errorMessage = null
+                            )
+                        }
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        _uiState.update { it.copy(errorMessage = "Could not decode selected image.") }
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _uiState.update { it.copy(errorMessage = "Failed to process image: ${e.localizedMessage}") }
+                }
+            }
+        }
+    }
+
+    fun onPhotoCaptured(context: Context, photoFile: File, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val bitmap = decodeSampledBitmapFromFile(photoFile, 1024, 1024)
+                if (bitmap != null) {
+                    val baos = ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 85, baos)
+                    val bytes = baos.toByteArray()
+                    val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                    withContext(Dispatchers.Main) {
+                        _uiState.update {
+                            it.copy(
+                                selectedImageUri = uri.toString(),
+                                selectedImageBitmap = bitmap,
+                                selectedImageBase64 = base64,
+                                selectedImageMime = "image/jpeg",
+                                errorMessage = null
+                            )
+                        }
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        _uiState.update { it.copy(errorMessage = "Could not decode captured photo.") }
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _uiState.update { it.copy(errorMessage = "Failed to process photo: ${e.localizedMessage}") }
+                }
+            }
+        }
+    }
+
+    fun clearSelectedImage() {
+        _uiState.update {
+            it.copy(
+                selectedImageUri = null,
+                selectedImageBitmap = null,
+                selectedImageBase64 = null,
+                selectedImageMime = null
+            )
+        }
+    }
+
+    private fun decodeSampledBitmapFromUri(context: Context, uri: Uri, reqWidth: Int, reqHeight: Int): Bitmap? {
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, options)
+        }
+        options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
+        options.inJustDecodeBounds = false
+        return context.contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, options)
+        }
+    }
+
+    private fun decodeSampledBitmapFromFile(file: File, reqWidth: Int, reqHeight: Int): Bitmap? {
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, options)
+        options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
+        options.inJustDecodeBounds = false
+        return BitmapFactory.decodeFile(file.absolutePath, options)
+    }
+
+    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+        val height = options.outHeight
+        val width = options.outWidth
+        var inSampleSize = 1
+        if (height > reqHeight || width > reqWidth) {
+            val halfHeight = height / 2
+            val halfWidth = width / 2
+            while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+        return inSampleSize
+    }
+
     // --- Text Q&A and Chat API Methods ---
 
     fun askQuestion(
@@ -341,38 +465,62 @@ class QaAssistantViewModel : ViewModel() {
         detailedNotes: DetailedNotesUiState? = null,
         summaryText: String = "",
         keyTakeaways: List<String> = emptyList(),
-        forceOffline: Boolean = false
+        forceOffline: Boolean = false,
+        imageData: String? = null,
+        imageMime: String? = null,
+        imageUri: String? = null,
+        imageBitmap: Bitmap? = null
     ) {
+        val currentState = _uiState.value
+        val effectiveImageData = imageData ?: currentState.selectedImageBase64
+        val effectiveImageMime = imageMime ?: currentState.selectedImageMime ?: "image/jpeg"
+        val effectiveImageUri = imageUri ?: currentState.selectedImageUri
+        val effectiveImageBitmap = imageBitmap ?: currentState.selectedImageBitmap
+
         val q = question.trim()
-        if (q.isBlank()) return
-        if (_uiState.value.isLoading) return // Prevent duplicate requests while loading
+        val effectivePrompt = if (q.isBlank() && !effectiveImageData.isNullOrBlank()) {
+            "Please analyze this image and explain it clearly step by step."
+        } else {
+            q
+        }
+
+        if (effectivePrompt.isBlank()) return
+        if (currentState.isLoading) return // Prevent duplicate requests while loading
 
         // Add user message to UI immediately
         val userMsg = QaMessageItem(
             sender = MessageSource.USER,
-            text = q,
+            text = effectivePrompt,
+            imageBitmap = effectiveImageBitmap,
+            imageUri = effectiveImageUri,
             timestamp = System.currentTimeMillis()
         )
         _uiState.update {
             it.copy(
                 messages = listOf(userMsg) + it.messages,
                 isLoading = true,
-                errorMessage = null
+                errorMessage = null,
+                selectedImageUri = null,
+                selectedImageBitmap = null,
+                selectedImageBase64 = null,
+                selectedImageMime = null
             )
         }
 
         if (forceOffline) {
-            executeOfflineAnswer(q, transcriptText, detailedNotes, summaryText, keyTakeaways)
+            executeOfflineAnswer(effectivePrompt, transcriptText, detailedNotes, summaryText, keyTakeaways)
             return
         }
 
         viewModelScope.launch {
             val currentConvId = _uiState.value.conversationId
             val result = ChatRepository.sendMessage(
-                message = q,
+                message = effectivePrompt,
                 conversationId = currentConvId,
                 subject = subject,
-                lectureTitle = lectureTitle
+                lectureTitle = lectureTitle,
+                imageData = effectiveImageData,
+                imageMime = effectiveImageMime
             )
 
             when (result) {
@@ -398,14 +546,14 @@ class QaAssistantViewModel : ViewModel() {
                             errorMessage = null
                         )
                     }
-                    autoSaveQuestionAnswerToMyNotes(q, assistantText, subject, lectureTitle)
+                    autoSaveQuestionAnswerToMyNotes(effectivePrompt, assistantText, subject, lectureTitle)
                     // Refresh conversation list after new message
                     fetchConversations()
                 }
                 is ChatResult.Error -> {
                     // Graceful offline fallback with clear labelling
                     val offlineAnswer = QuestionAnsweringEngine.answerQuestion(
-                        question = q,
+                        question = effectivePrompt,
                         transcriptText = transcriptText,
                         detailedNotes = detailedNotes,
                         summaryText = summaryText,
@@ -432,7 +580,7 @@ class QaAssistantViewModel : ViewModel() {
                             errorMessage = result.message
                         )
                     }
-                    autoSaveQuestionAnswerToMyNotes(q, offlineAnswer.answer, subject, lectureTitle)
+                    autoSaveQuestionAnswerToMyNotes(effectivePrompt, offlineAnswer.answer, subject, lectureTitle)
                 }
             }
         }

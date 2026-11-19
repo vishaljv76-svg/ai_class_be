@@ -37,7 +37,9 @@ object ChatRepository {
         message: String,
         conversationId: Int? = null,
         subject: String? = null,
-        lectureTitle: String? = null
+        lectureTitle: String? = null,
+        imageData: String? = null,
+        imageMime: String? = null
     ): ChatResult<ChatSendResultData> = withContext(Dispatchers.IO) {
         if (!SessionManager.isLoggedIn()) {
             return@withContext ChatResult.Error(
@@ -52,7 +54,9 @@ object ChatRepository {
                 message = message.trim(),
                 conversation_id = conversationId,
                 subject = subject,
-                lecture_title = lectureTitle
+                lecture_title = lectureTitle,
+                image_data = imageData,
+                image_mime = imageMime
             )
 
             val response = RetrofitClient.apiService.sendMessage(request)

@@ -30,7 +30,9 @@ data class ChatSendMessageRequest(
     val conversation_id: Int? = null,
     val subject: String? = null,
     val lecture_title: String? = null,
-    val action: String = "send_message"
+    val action: String = "send_message",
+    val image_data: String? = null,
+    val image_mime: String? = null
 )
 
 data class ChatHistoryRequest(

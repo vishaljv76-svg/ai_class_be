@@ -1,4 +1,4 @@
-﻿package com.example.Simtas.ui.theme
+package com.example.Simtas.ui.theme
 
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme

@@ -11,6 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -66,14 +67,18 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.example.Simtas.ui.qa.MessageSource
 import com.example.Simtas.ui.qa.QaAssistantViewModel
 import com.example.Simtas.ui.qa.QaMessageItem
@@ -185,6 +190,78 @@ fun AiChatScreen(
                     Toast.makeText(context, "Could not read audio file: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
+
+    // Camera capture state and launcher
+    var cameraTempPhotoFile by remember { mutableStateOf<File?>(null) }
+    var cameraTempPhotoUri by remember { mutableStateOf<Uri?>(null) }
+
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            val file = cameraTempPhotoFile
+            val uri = cameraTempPhotoUri
+            if (file != null && uri != null) {
+                viewModel.onPhotoCaptured(context, file, uri)
+            }
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            try {
+                val tempFile = File(context.cacheDir, "camera_photo_${System.currentTimeMillis()}.jpg")
+                cameraTempPhotoFile = tempFile
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", tempFile)
+                cameraTempPhotoUri = uri
+                takePictureLauncher.launch(uri)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Could not open camera: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Camera permission is required to capture photos.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val handleCameraClick = {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasPermission) {
+            try {
+                val tempFile = File(context.cacheDir, "camera_photo_${System.currentTimeMillis()}.jpg")
+                cameraTempPhotoFile = tempFile
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", tempFile)
+                cameraTempPhotoUri = uri
+                takePictureLauncher.launch(uri)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Could not open camera: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    // Gallery photo picker launcher
+    val galleryPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.onImageSelected(context, uri)
+        }
+    }
+
+    val handleGalleryClick = {
+        try {
+            galleryPickerLauncher.launch("image/*")
+        } catch (e: Exception) {
+            Toast.makeText(context, "Could not open photo gallery: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -407,13 +484,93 @@ fun AiChatScreen(
                 }
             }
 
+            // Attached Image Preview Badge (Thumbnail with remove X button)
+            AnimatedVisibility(visible = uiState.selectedImageBitmap != null) {
+                if (uiState.selectedImageBitmap != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .border(1.5.dp, PurplePrimary, RoundedCornerShape(12.dp))
+                        ) {
+                            Image(
+                                bitmap = uiState.selectedImageBitmap!!.asImageBitmap(),
+                                contentDescription = "Attached study image",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+
+                            // Remove button badge (X)
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(3.dp)
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.65f))
+                                    .clickable { viewModel.clearSelectedImage() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Canvas(modifier = Modifier.size(10.dp)) {
+                                    drawCloseIcon(Color.White)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Column {
+                            Text(
+                                text = "Image Attached",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextDarkPrimary
+                            )
+                            Text(
+                                text = "Type a question below or tap send to analyze",
+                                fontSize = 11.sp,
+                                color = TextMuted
+                            )
+                        }
+                    }
+                }
+            }
+
             // --- 5. ChatGPT-Style Bottom Input Bar ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Camera Button
+                IconButton(
+                    onClick = { handleCameraClick() },
+                    enabled = !uiState.isLoading && !uiState.isListening && !uiState.isTranscribingVoice,
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Canvas(modifier = Modifier.size(20.dp)) {
+                        drawCameraIcon(PurplePrimary)
+                    }
+                }
+
+                // Gallery Button
+                IconButton(
+                    onClick = { handleGalleryClick() },
+                    enabled = !uiState.isLoading && !uiState.isListening && !uiState.isTranscribingVoice,
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Canvas(modifier = Modifier.size(20.dp)) {
+                        drawGalleryIcon(PurplePrimary)
+                    }
+                }
+
                 // Attach Audio Button
                 IconButton(
                     onClick = {
@@ -424,14 +581,14 @@ fun AiChatScreen(
                         }
                     },
                     enabled = !uiState.isLoading && !uiState.isListening && !uiState.isTranscribingVoice,
-                    modifier = Modifier.size(42.dp)
+                    modifier = Modifier.size(38.dp)
                 ) {
-                    Canvas(modifier = Modifier.size(20.dp)) {
+                    Canvas(modifier = Modifier.size(18.dp)) {
                         drawAttachIcon(if (isAttachingAudio) PurplePrimary else TextMuted)
                     }
                 }
 
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(2.dp))
 
                 // Editable Multi-line Text Field
                 OutlinedTextField(
@@ -442,7 +599,8 @@ fun AiChatScreen(
                             text = when {
                                 uiState.isListening -> "Listening to your voice..."
                                 uiState.isTranscribingVoice -> "Converting speech to text..."
-                                else -> "Message SmartNotes AI..."
+                                uiState.selectedImageBitmap != null -> "Ask about this image..."
+                                else -> "Ask anything..."
                             },
                             fontSize = 14.sp,
                             color = TextMuted
@@ -452,7 +610,7 @@ fun AiChatScreen(
                     enabled = !uiState.isLoading && !uiState.isTranscribingVoice,
                     modifier = Modifier
                         .weight(1f)
-                        .heightIn(min = 48.dp, max = 130.dp),
+                        .heightIn(min = 44.dp, max = 130.dp),
                     shape = RoundedCornerShape(20.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = PurplePrimary,
@@ -462,13 +620,13 @@ fun AiChatScreen(
                     )
                 )
 
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(4.dp))
 
                 // Microphone Button (Voice-to-Text)
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(38.dp)
                         .clip(CircleShape)
                         .background(
                             when {
@@ -483,12 +641,12 @@ fun AiChatScreen(
                 ) {
                     if (uiState.isTranscribingVoice || isAttachingAudio) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(16.dp),
                             color = PurplePrimary,
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Canvas(modifier = Modifier.size(20.dp)) {
+                        Canvas(modifier = Modifier.size(18.dp)) {
                             if (uiState.isListening) {
                                 drawSquareStopIcon(Color.White)
                             } else {
@@ -498,36 +656,35 @@ fun AiChatScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(4.dp))
 
                 // Send Button
-                val canSend = queryText.isNotBlank() && !uiState.isLoading && !uiState.isListening && !uiState.isTranscribingVoice
+                val hasContent = queryText.isNotBlank() || uiState.selectedImageBitmap != null
+                val canSend = hasContent && !uiState.isLoading && !uiState.isListening && !uiState.isTranscribingVoice
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(38.dp)
                         .clip(CircleShape)
                         .background(if (canSend) PurplePrimary else Color(0xFFE2E8F0))
                         .clickable(enabled = canSend) {
                             val q = queryText.trim()
-                            if (q.isNotBlank()) {
-                                viewModel.askQuestion(
-                                    question = q,
-                                    subject = "General Education & Computer Science",
-                                    lectureTitle = "SmartNotes AI Study Chat"
-                                )
-                                queryText = ""
-                            }
+                            viewModel.askQuestion(
+                                question = q,
+                                subject = "General Education & Computer Science",
+                                lectureTitle = "SmartNotes AI Study Chat"
+                            )
+                            queryText = ""
                         }
                 ) {
                     if (uiState.isLoading) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(16.dp),
                             color = Color.White,
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Canvas(modifier = Modifier.size(18.dp)) {
+                        Canvas(modifier = Modifier.size(16.dp)) {
                             drawSendIcon(if (canSend) Color.White else Color(0xFF94A3B8))
                         }
                     }
@@ -744,12 +901,26 @@ private fun ChatMessageCard(
                     .background(PurplePrimary)
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
-                Text(
-                    text = message.text,
-                    fontSize = 14.sp,
-                    color = Color.White,
-                    lineHeight = 20.sp
-                )
+                Column {
+                    if (message.imageBitmap != null) {
+                        Image(
+                            bitmap = message.imageBitmap.asImageBitmap(),
+                            contentDescription = "User uploaded study image",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    Text(
+                        text = message.text,
+                        fontSize = 14.sp,
+                        color = Color.White,
+                        lineHeight = 20.sp
+                    )
+                }
             }
         }
     } else {
@@ -886,16 +1057,18 @@ private fun EmptyChatWelcomeView(
         Spacer(modifier = Modifier.height(14.dp))
 
         Text(
-            text = "How can I help you study today?",
-            fontSize = 18.sp,
+            text = "Hello! Upload a picture or ask me anything. I'll help you understand it step by step.",
+            fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
-            color = TextDarkPrimary
+            color = TextDarkPrimary,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 16.dp)
         )
 
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Ask questions across computer science, math, formulas, code, essay writing, or general knowledge.",
+            text = "Snap a photo of your textbook, formula, code, or handwritten notes, or choose an image from your gallery.",
             fontSize = 12.sp,
             color = TextMuted,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -1160,5 +1333,77 @@ private fun DrawScope.drawTrashIcon(color: Color) {
         strokeWidth = strokeWidth,
         cap = StrokeCap.Round
     )
+}
+
+private fun DrawScope.drawCameraIcon(color: Color) {
+    val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+    val w = size.width
+    val h = size.height
+    // Camera body
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(w * 0.12f, h * 0.30f),
+        size = Size(w * 0.76f, h * 0.54f),
+        cornerRadius = CornerRadius(3.dp.toPx()),
+        style = stroke
+    )
+    // Top flash/pentaprism notch
+    val topNotch = Path().apply {
+        moveTo(w * 0.34f, h * 0.30f)
+        lineTo(w * 0.40f, h * 0.18f)
+        lineTo(w * 0.60f, h * 0.18f)
+        lineTo(w * 0.66f, h * 0.30f)
+    }
+    drawPath(topNotch, color = color, style = stroke)
+    // Center lens circle
+    drawCircle(
+        color = color,
+        radius = w * 0.17f,
+        center = Offset(w * 0.5f, h * 0.57f),
+        style = stroke
+    )
+    // Small viewfinder dot
+    drawCircle(
+        color = color,
+        radius = w * 0.035f,
+        center = Offset(w * 0.74f, h * 0.42f)
+    )
+}
+
+private fun DrawScope.drawGalleryIcon(color: Color) {
+    val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+    val w = size.width
+    val h = size.height
+    // Outer photo frame
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(w * 0.12f, h * 0.15f),
+        size = Size(w * 0.76f, h * 0.70f),
+        cornerRadius = CornerRadius(3.dp.toPx()),
+        style = stroke
+    )
+    // Sun / Moon circle
+    drawCircle(
+        color = color,
+        radius = w * 0.08f,
+        center = Offset(w * 0.32f, h * 0.36f)
+    )
+    // Mountain peaks
+    val mountains = Path().apply {
+        moveTo(w * 0.16f, h * 0.75f)
+        lineTo(w * 0.42f, h * 0.48f)
+        lineTo(w * 0.58f, h * 0.64f)
+        lineTo(w * 0.72f, h * 0.50f)
+        lineTo(w * 0.84f, h * 0.75f)
+    }
+    drawPath(mountains, color = color, style = stroke)
+}
+
+private fun DrawScope.drawCloseIcon(color: Color) {
+    val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+    val w = size.width
+    val h = size.height
+    drawLine(color = color, start = Offset(w * 0.25f, h * 0.25f), end = Offset(w * 0.75f, h * 0.75f), strokeWidth = stroke.width, cap = StrokeCap.Round)
+    drawLine(color = color, start = Offset(w * 0.75f, h * 0.25f), end = Offset(w * 0.25f, h * 0.75f), strokeWidth = stroke.width, cap = StrokeCap.Round)
 }
 

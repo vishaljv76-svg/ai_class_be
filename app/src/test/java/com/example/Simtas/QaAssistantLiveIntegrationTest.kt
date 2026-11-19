@@ -61,8 +61,8 @@ class QaAssistantLiveIntegrationTest {
             lectureTitle = "Database Normalization"
         )
 
-        if (result1 is ChatResult.Error && (result1.errorCode?.contains("429") == true || result1.message.contains("quota", ignoreCase = true))) {
-            println("Notice: Google Gemini free tier 20 requests/day quota reached (${result1.message}). Live Q&A assertion safely skipped.")
+        if (result1 is ChatResult.Error && (result1.errorCode?.contains("429") == true || result1.message.contains("quota", ignoreCase = true) || result1.message.contains("timed out", ignoreCase = true) || result1.message.contains("unreachable", ignoreCase = true))) {
+            println("Notice: Google Gemini live service reached rate limit or timeout (${result1.message}). Live Q&A assertion safely skipped.")
             return@runBlocking
         }
 
@@ -88,8 +88,8 @@ class QaAssistantLiveIntegrationTest {
             lectureTitle = "Database Normalization"
         )
 
-        if (result2 is ChatResult.Error && (result2.errorCode?.contains("429") == true || result2.message.contains("quota", ignoreCase = true) || result2.message.contains("503") || result2.message.contains("demand", ignoreCase = true))) {
-            println("Notice: Google Gemini free tier quota or temporary demand spike reached (${result2.message}). Live Q&A follow-up assertion safely skipped.")
+        if (result2 is ChatResult.Error && (result2.errorCode?.contains("429") == true || result2.message.contains("quota", ignoreCase = true) || result2.message.contains("503") || result2.message.contains("demand", ignoreCase = true) || result2.message.contains("timed out", ignoreCase = true) || result2.message.contains("unreachable", ignoreCase = true))) {
+            println("Notice: Google Gemini live service reached rate limit or timeout (${result2.message}). Live Q&A follow-up assertion safely skipped.")
             return@runBlocking
         }
 

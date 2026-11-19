@@ -63,6 +63,9 @@ import com.example.Simtas.ui.theme.TextDarkPrimary
 import com.example.Simtas.ui.theme.TextMuted
 import com.example.Simtas.ui.theme.TextSubtitle
 import com.example.Simtas.ui.theme.ThemeManager
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 // ============================================================================
 // LUXURY PASTEL LAVENDER & VIBRANT PURPLE PALETTE
@@ -371,6 +374,13 @@ private fun TopHeaderBar(
     val initials = userInitials.ifBlank {
         com.example.Simtas.data.remote.SessionManager.computeInitials(displayName).ifBlank { "AM" }
     }
+    val dynamicDateText = remember {
+        try {
+            SimpleDateFormat("EEEE, d MMMM yyyy", Locale.getDefault()).format(Date())
+        } catch (_: Exception) {
+            dateText.ifBlank { "Thursday, 19 November 2026" }
+        }
+    }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -421,6 +431,13 @@ private fun TopHeaderBar(
             Spacer(modifier = Modifier.width(12.dp))
 
             Column {
+                Text(
+                    text = dynamicDateText,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextMuted
+                )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = greeting,
                     fontSize = 20.sp,

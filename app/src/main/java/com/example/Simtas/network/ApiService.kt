@@ -1,8 +1,13 @@
 package com.example.Simtas.network
 
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.GET
+import retrofit2.http.Headers
 import retrofit2.http.POST
+import retrofit2.http.Query
+import retrofit2.http.Streaming
 
 // --- Existing Authentication Models ---
 data class LoginRequest(
@@ -56,12 +61,22 @@ data class ChatMessageContent(
     val provider: String? = null
 )
 
+data class ChatAttachmentItem(
+    val id: Int,
+    val file_name: String? = null,
+    val file_size: Int? = null,
+    val mime_type: String? = null,
+    val url: String? = null,
+    val created_at: String? = null
+)
+
 data class ChatHistoryMessageItem(
     val id: Int? = null,
     val role: String = "user",
     val message_content: String = "",
     val provider: String? = null,
-    val created_at: String? = null
+    val created_at: String? = null,
+    val attachments: List<ChatAttachmentItem> = emptyList()
 )
 
 data class ChatConversationSummary(
@@ -130,6 +145,13 @@ interface ApiService {
         @Body request: ChatSendMessageRequest
     ): Response<ChatSendResponse>
 
+    @Streaming
+    @Headers("Accept: text/event-stream")
+    @POST("ai/chat_stream.php")
+    suspend fun streamMessage(
+        @Body request: ChatSendMessageRequest
+    ): Response<ResponseBody>
+
     @POST("ai/chat.php")
     suspend fun getHistory(
         @Body request: ChatHistoryRequest
@@ -144,4 +166,10 @@ interface ApiService {
     suspend fun deleteConversation(
         @Body request: ChatDeleteConversationRequest
     ): Response<ChatDeleteConversationResponse>
+
+    @Streaming
+    @GET("ai/get_chat_attachment.php")
+    suspend fun getChatAttachment(
+        @Query("id") id: Int
+    ): Response<ResponseBody>
 }

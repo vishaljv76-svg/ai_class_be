@@ -15,7 +15,11 @@ object RetrofitClient {
         val originalRequest = chain.request()
         val requestBuilder = originalRequest.newBuilder()
             .header("ngrok-skip-browser-warning", "true")
-            .header("Accept", "application/json")
+
+        // Preserve existing Accept header (e.g. text/event-stream for SSE streaming), default to application/json
+        if (originalRequest.header("Accept").isNullOrBlank()) {
+            requestBuilder.header("Accept", "application/json")
+        }
 
         // Attach Authorization Bearer token from SessionManager if available
         val token = SessionManager.getToken()
@@ -36,8 +40,8 @@ object RetrofitClient {
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
             .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(35, TimeUnit.SECONDS)
-            .writeTimeout(35, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(120, TimeUnit.SECONDS)
             .build()
     }
 

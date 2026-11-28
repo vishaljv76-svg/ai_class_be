@@ -225,5 +225,167 @@ class QaAssistantChatTest {
         assertEquals("Conversation deleted successfully.", response.message)
         assertEquals(42, response.deleted_conversation_id)
     }
+
+    @Test
+    fun testDirectQuestionAnsweringEngine_BcnfQueries() {
+        val testQueries = listOf(
+            "Explain BCNF normalization with a simple real-world example.",
+            "Explain BCNF Normalization with a simple real-world example.",
+            "What is BCNF?",
+            "Explain machine learning with a real-life example.",
+            "Explain deadlock in operating systems",
+            "Explain ACID properties in database",
+            "What is database normalization?",
+            "Explain 1NF, 2NF and 3NF",
+            "What is supervised learning?",
+            "What is unsupervised learning?",
+            "Explain photosynthesis"
+        )
+
+        for (q in testQueries) {
+            val ans = com.example.Simtas.data.ml.QuestionAnsweringEngine.answerQuestion(q)
+            println("QUERY: '$q' => isAnswered=${ans.isAnswered}, status=${ans.status}, answerPreview=${ans.answer.take(80)}")
+            assertTrue("Query '$q' should be answered", ans.isAnswered)
+            assertTrue("Query '$q' answer must not be empty", ans.answer.isNotBlank())
+        }
+    }
+
+    @Test
+    fun testBcnfNormalizationOfflineAnswer_HasRealWorldExample() {
+        val q = "Explain BCNF Normalization with a simple real-world example."
+        val ans = com.example.Simtas.data.ml.QuestionAnsweringEngine.answerQuestion(q)
+
+        assertTrue("BCNF question must be answered", ans.isAnswered)
+        assertTrue("Answer must contain Boyce-Codd Normal Form", ans.answer.contains("Boyce-Codd Normal Form"))
+        assertTrue("Answer must contain Key Concepts", ans.answer.contains("Key Concepts"))
+        assertTrue("Answer must contain Example", ans.answer.contains("Example:"))
+        assertTrue("Answer must include student/professor/course example", ans.answer.contains("Advise(StudentID") || ans.answer.contains("Professor"))
+        assertFalse("Explanation must not mention raw 429", ans.explanation.contains("429"))
+    }
+
+    @Test
+    fun testMachineLearningSubtopics() {
+        val qSupervised = "What is supervised learning?"
+        val ansSupervised = com.example.Simtas.data.ml.QuestionAnsweringEngine.answerQuestion(qSupervised)
+        assertTrue("Supervised learning must be answered", ansSupervised.isAnswered)
+        assertTrue("Answer must contain classification or regression", ansSupervised.answer.contains("Classification") || ansSupervised.answer.contains("labeled"))
+
+        val qUnsupervised = "What is unsupervised learning?"
+        val ansUnsupervised = com.example.Simtas.data.ml.QuestionAnsweringEngine.answerQuestion(qUnsupervised)
+        assertTrue("Unsupervised learning must be answered", ansUnsupervised.isAnswered)
+        assertTrue("Answer must contain clustering or unlabeled", ansUnsupervised.answer.contains("Clustering") || ansUnsupervised.answer.contains("unlabeled"))
+
+        val qML = "Explain machine learning with a real-life example."
+        val ansML = com.example.Simtas.data.ml.QuestionAnsweringEngine.answerQuestion(qML)
+        assertTrue("Machine learning must be answered", ansML.isAnswered)
+        assertTrue("Answer must contain example", ansML.answer.contains("Example:"))
+    }
+
+    @Test
+    fun testDatabaseNormalizationAndNormalForms() {
+        val qNorm = "What is database normalization?"
+        val ansNorm = com.example.Simtas.data.ml.QuestionAnsweringEngine.answerQuestion(qNorm)
+        assertTrue(ansNorm.isAnswered)
+        assertTrue(ansNorm.answer.contains("1NF") && ansNorm.answer.contains("BCNF"))
+
+        val q1nf = "Explain 1NF with an example"
+        val ans1nf = com.example.Simtas.data.ml.QuestionAnsweringEngine.answerQuestion(q1nf)
+        assertTrue(ans1nf.isAnswered)
+        assertTrue(ans1nf.answer.contains("atomic", ignoreCase = true))
+
+        val q2nf = "Explain 2NF with an example"
+        val ans2nf = com.example.Simtas.data.ml.QuestionAnsweringEngine.answerQuestion(q2nf)
+        assertTrue(ans2nf.isAnswered)
+        assertTrue(ans2nf.answer.contains("partial", ignoreCase = true))
+
+        val q3nf = "Explain 3NF with an example"
+        val ans3nf = com.example.Simtas.data.ml.QuestionAnsweringEngine.answerQuestion(q3nf)
+        assertTrue(ans3nf.isAnswered)
+        assertTrue(ans3nf.answer.contains("transitive", ignoreCase = true))
+    }
+
+    @Test
+    fun testQaAssistantViewModel_GeminiRateLimitCooldownFlow() {
+        val viewModel = QaAssistantViewModel()
+
+        // Simulate active 60s cooldown from earlier Gemini 429
+        viewModel.geminiRateLimitedUntil = System.currentTimeMillis() + 60_000L
+
+        // Ask general academic question while rate-limited
+        viewModel.askQuestion("Explain BCNF Normalization with a simple real-world example.")
+
+        val state = viewModel.uiState.value
+        val offlineMsg = state.messages.find { it.sender == MessageSource.OFFLINE_ENGINE }
+
+        assertNotNull("Offline answer message should exist", offlineMsg)
+        assertEquals("Answered using Offline Knowledge", offlineMsg?.provider)
+        assertFalse("General question must not show Offline Curriculum", offlineMsg?.provider == "Offline Curriculum")
+        assertNull("Error banner must NOT be shown when offline fallback successfully answers", state.errorMessage)
+        assertFalse("Loading indicator must be stopped", state.isLoading)
+        assertTrue("Must be marked answered", offlineMsg?.isAnswered == true)
+        assertTrue("Must include BCNF example", offlineMsg?.text?.contains("Advise(StudentID") == true || offlineMsg?.text?.contains("Professor") == true)
+    }
+
+    @Test
+    fun testQaAssistantViewModel_GeneralQuestionOfflineLabeling() {
+        val viewModel = QaAssistantViewModel()
+
+        // General query with NO lecture context (e.g. from AiChatScreen)
+        viewModel.askQuestion(
+            question = "Explain BCNF Normalization with a simple real-world example.",
+            forceOffline = true
+        )
+
+        val state = viewModel.uiState.value
+        val offlineMsg = state.messages.find { it.sender == MessageSource.OFFLINE_ENGINE }
+
+        assertNotNull("Offline answer message should exist", offlineMsg)
+        assertEquals("Answered using Offline Knowledge", offlineMsg?.provider)
+        assertFalse("General question must not show Offline Curriculum", offlineMsg?.provider == "Offline Curriculum")
+        assertNull("Error message must not be shown when fallback successfully answers", state.errorMessage)
+        assertFalse("Loading indicator must be stopped", state.isLoading)
+        assertTrue("Answer text must not be empty", offlineMsg?.text?.isNotEmpty() == true)
+        assertTrue("Must be answered: actual text=${offlineMsg?.text}", offlineMsg?.isAnswered == true)
+        assertFalse("Explanation must not contain raw HTTP 429 error code", offlineMsg?.explanation?.contains("429") == true)
+    }
+
+    @Test
+    fun testQaAssistantViewModel_LectureQuestionOfflineLabeling() {
+        val viewModel = QaAssistantViewModel()
+
+        // Query WITH lecture context (e.g. from QaAssistantBottomSheet)
+        viewModel.askQuestion(
+            question = "What did the professor say about keys?",
+            transcriptText = "In today's lecture on database design, the professor explained primary keys and foreign keys.",
+            forceOffline = true
+        )
+
+        val state = viewModel.uiState.value
+        val offlineMsg = state.messages.find { it.sender == MessageSource.OFFLINE_ENGINE }
+
+        assertNotNull(offlineMsg)
+        assertEquals("Offline Curriculum", offlineMsg?.provider)
+        assertNull("No error toast when answered", state.errorMessage)
+        assertFalse("Loading indicator must be stopped", state.isLoading)
+    }
+
+    @Test
+    fun testQaAssistantViewModel_GeneralQuestionBothFailFriendlyMessage() {
+        val viewModel = QaAssistantViewModel()
+
+        // Unsupported random question without lecture context
+        viewModel.askQuestion(
+            question = "xyzqprrandomnonexistenttopic12345",
+            forceOffline = true
+        )
+
+        val state = viewModel.uiState.value
+        val offlineMsg = state.messages.find { it.sender == MessageSource.OFFLINE_ENGINE }
+
+        assertNotNull(offlineMsg)
+        assertFalse("Loading indicator must always be stopped", state.isLoading)
+        assertFalse("General question must not claim not covered in lecture", offlineMsg?.text?.contains("not covered in the current lecture content") == true)
+        assertTrue("Friendly offline message should be shown", offlineMsg?.text?.contains("SmartNotes AI is currently unable to answer") == true)
+    }
 }
 

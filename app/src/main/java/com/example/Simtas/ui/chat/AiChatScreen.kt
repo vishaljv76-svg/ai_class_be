@@ -10,6 +10,15 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -124,6 +133,15 @@ fun AiChatScreen(
     LaunchedEffect(displayMessages.size, uiState.isLoading) {
         if (displayMessages.isNotEmpty()) {
             listState.animateScrollToItem(displayMessages.size - 1)
+        }
+    }
+
+    // Follow newly arriving text during streaming without excessive animation or UI flickering
+    val lastMessage = displayMessages.lastOrNull()
+    val isStreamingActive = lastMessage?.isStreaming == true
+    LaunchedEffect(lastMessage?.text?.length, isStreamingActive) {
+        if (isStreamingActive && displayMessages.isNotEmpty()) {
+            listState.scrollToItem(displayMessages.size - 1)
         }
     }
 
@@ -310,7 +328,7 @@ fun AiChatScreen(
                                     .padding(horizontal = 7.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = "Gemini",
+                                    text = "SmartNotes AI",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = PurplePrimary
@@ -913,6 +931,47 @@ private fun ChatMessageCard(
                                 .clip(RoundedCornerShape(12.dp))
                         )
                         Spacer(modifier = Modifier.height(8.dp))
+                    } else if (message.isImageLoading) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(140.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Loading image...",
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    } else if (message.imageLoadFailed) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(60.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha = 0.12f))
+                                .padding(8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Image unavailable",
+                                color = Color.White.copy(alpha = 0.75f),
+                                fontSize = 12.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                     Text(
                         text = message.text,
@@ -948,8 +1007,16 @@ private fun ChatMessageCard(
                                 .background(if (isOffline) Color(0xFFFEF3C7) else Color(0xFFE6F4EA))
                                 .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
+                            val badgeTitle = when {
+                                isOffline -> message.provider?.takeIf { it.isNotBlank() } ?: "Answered using Offline Knowledge"
+                                message.text.contains("Verified Sources") -> "SmartNotes AI (Web + Ollama)"
+                                message.provider?.equals("gemini", ignoreCase = true) == true -> "Google Gemini"
+                                message.provider?.equals("slm_rag", ignoreCase = true) == true -> "SmartNotes AI (Ollama)"
+                                message.provider?.isNotBlank() == true -> message.provider!!
+                                else -> "SmartNotes AI (Ollama)"
+                            }
                             Text(
-                                text = if (isOffline) "Offline Curriculum" else "Google Gemini",
+                                text = badgeTitle,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isOffline) Color(0xFFB45309) else Color(0xFF137333)
@@ -979,11 +1046,36 @@ private fun ChatMessageCard(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Rich Markdown & Visual Diagrams Rendering
-                MarkdownViewer(
-                    content = message.text,
-                    onCopyText = onCopyClick
-                )
+                if (message.isStreaming) {
+                    val infiniteTransition = rememberInfiniteTransition(label = "cursor")
+                    val cursorAlpha by infiniteTransition.animateFloat(
+                        initialValue = 1f,
+                        targetValue = 0f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(500, easing = LinearEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "cursorAlpha"
+                    )
+
+                    Text(
+                        text = buildAnnotatedString {
+                            append(message.text)
+                            withStyle(SpanStyle(color = PurplePrimary.copy(alpha = cursorAlpha), fontWeight = FontWeight.Bold)) {
+                                append(" ▌")
+                            }
+                        },
+                        fontSize = 14.sp,
+                        color = TextDarkPrimary,
+                        lineHeight = 22.sp
+                    )
+                } else {
+                    // Rich Markdown & Visual Diagrams Rendering
+                    MarkdownViewer(
+                        content = message.text,
+                        onCopyText = onCopyClick
+                    )
+                }
 
                 if (message.explanation.isNotBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))

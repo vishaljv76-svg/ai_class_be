@@ -505,6 +505,167 @@ INNER JOIN Courses ON Enrollments.course_id = Courses.id;
             )
         )
 
+        val bcnfTopic = KnowledgeTopic(
+            title = "Boyce-Codd Normal Form (BCNF)",
+            domain = "Computer Science",
+            definition = "Boyce-Codd Normal Form (BCNF, or 3.5NF) is a stricter version of Third Normal Form (3NF) in relational database design where for every non-trivial functional dependency X → Y, X must be a superkey.",
+            explanation = "While 3NF permits non-superkey determinants if the dependent attribute is prime (part of a candidate key), BCNF strictly eliminates this exception to prevent redundancy and anomalies when tables have multiple overlapping composite candidate keys. If any determinant is not a superkey, the table must be decomposed into separate relations.",
+            keyPoints = listOf(
+                "Determinant Must Be Superkey: For every non-trivial functional dependency X → Y, X must uniquely identify every row.",
+                "Stricter than 3NF: Every relation in BCNF is guaranteed to be in 3NF, but a 3NF relation is not necessarily in BCNF.",
+                "Lossless Decomposition: A table violating BCNF is decomposed into two smaller tables without losing data, though functional dependency preservation is not always guaranteed.",
+                "Anomaly Prevention: Eliminates update, insertion, and deletion anomalies caused by overlapping candidate keys."
+            ),
+            example = "Consider a university advising relation Advise(StudentID, Course, Professor) where each Professor teaches only one Course, but a Course has multiple professors, and a student can take multiple courses. Functional dependencies: (StudentID, Course) → Professor, and Professor → Course. Candidate keys are (StudentID, Course) and (StudentID, Professor). In Professor → Course, Professor determines Course but Professor is NOT a superkey on its own, violating BCNF. To normalize into BCNF, decompose the table into: Advise(StudentID, Professor) and Teaching(Professor, Course)."
+        )
+        registerTopic("bcnf", bcnfTopic)
+        registerTopic("bcnf normalization", bcnfTopic)
+        registerTopic("boyce-codd normal form", bcnfTopic)
+        registerTopic("boyce codd normal form", bcnfTopic)
+
+        val normalizationTopic = KnowledgeTopic(
+            title = "Database Normalization",
+            domain = "Computer Science",
+            definition = "Database normalization is the process of organizing data in a relational database to reduce redundancy, eliminate data anomalies (insertion, update, deletion), and improve data integrity.",
+            explanation = "Normalization decomposes large, redundant tables into smaller, well-structured relations using functional dependencies. The standard progression moves through First Normal Form (1NF), Second Normal Form (2NF), Third Normal Form (3NF), and Boyce-Codd Normal Form (BCNF).",
+            keyPoints = listOf(
+                "1NF (Atomicity): All attribute values must be atomic; no multi-valued attributes or repeating groups.",
+                "2NF (Full Functional Dependency): Table satisfies 1NF and no non-prime attribute is partially dependent on any candidate key.",
+                "3NF (No Transitive Dependency): Table satisfies 2NF and no non-prime attribute transitively depends on the primary key.",
+                "BCNF (Strict 3NF): For every non-trivial functional dependency X → Y, X must be a superkey.",
+                "Benefits: Saves storage, prevents inconsistent data updates, and enforces referential integrity."
+            ),
+            example = "An unnormalized table Student(id, name, courses_taken) with comma-separated courses 'Math, CS' violates 1NF. Decomposing into Student(id, name) and Enrollment(student_id, course_name) brings it into 1NF."
+        )
+        registerTopic("database normalization", normalizationTopic)
+        registerTopic("normalization", normalizationTopic)
+
+        val firstNormalFormTopic = KnowledgeTopic(
+            title = "First Normal Form (1NF)",
+            domain = "Computer Science",
+            definition = "First Normal Form (1NF) is a property of a relation in an RDBMS requiring that each table column contains only atomic (indivisible) values, each row is unique, and there are no repeating groups or arrays.",
+            explanation = "1NF enforces a tabular structure where every cell holds exactly one scalar value. If a student record lists multiple phone numbers or courses in a single cell, it violates 1NF and must be unnested.",
+            keyPoints = listOf(
+                "Atomicity: Each field contains a single scalar value, not comma-separated lists, sets, or nested objects.",
+                "Unique Rows: Every record must be distinguishable, typically guaranteed by a primary key.",
+                "No Repeating Groups: Avoid columns like phone1, phone2, phone3; instead, create a separate related table."
+            ),
+            example = "If Student(id, name, skills) stores skills as 'Java, Python, SQL', it violates 1NF. Decomposing into separate rows or a StudentSkills(student_id, skill) table satisfies 1NF."
+        )
+        registerTopic("1nf", firstNormalFormTopic)
+        registerTopic("first normal form", firstNormalFormTopic)
+
+        val secondNormalFormTopic = KnowledgeTopic(
+            title = "Second Normal Form (2NF)",
+            domain = "Computer Science",
+            definition = "Second Normal Form (2NF) requires a relation to be in 1NF and have no partial functional dependencies, meaning every non-prime attribute must depend on the entire candidate key, not just a subset of it.",
+            explanation = "2NF specifically applies to relations with composite primary keys. If a non-key attribute depends on only one part of a composite key, it causes redundancy and must be moved to its own table.",
+            keyPoints = listOf(
+                "Prerequisites: Table must already satisfy 1NF.",
+                "No Partial Dependencies: Non-key columns cannot depend on a portion of a composite primary key.",
+                "Single-column Keys: Any 1NF relation whose candidate key consists of a single attribute is automatically in 2NF."
+            ),
+            example = "In OrderDetails(OrderID, ProductID, Quantity, ProductName), the composite primary key is (OrderID, ProductID). Quantity depends on both (OrderID, ProductID), but ProductName depends only on ProductID (partial dependency). Moving Product(ProductID, ProductName) to a separate table resolves 2NF."
+        )
+        registerTopic("2nf", secondNormalFormTopic)
+        registerTopic("second normal form", secondNormalFormTopic)
+
+        val thirdNormalFormTopic = KnowledgeTopic(
+            title = "Third Normal Form (3NF)",
+            domain = "Computer Science",
+            definition = "Third Normal Form (3NF) requires a relation to be in 2NF and have no transitive functional dependencies, meaning no non-prime attribute depends on another non-prime attribute (for every dependency X → Y, X is a superkey or Y is prime).",
+            explanation = "3NF follows the principle: 'Every non-key attribute must depend on the key, the whole key, and nothing but the key'. If A determines B and B determines C, C transitively depends on A, creating update anomalies.",
+            keyPoints = listOf(
+                "Prerequisites: Table must already satisfy 2NF.",
+                "No Transitive Dependencies: Non-key attributes must directly depend on candidate keys only.",
+                "Eliminates Redundancy: Prevents duplicate non-key data across rows."
+            ),
+            example = "In Employee(EmpID, Name, DeptID, DeptName), EmpID → DeptID and DeptID → DeptName. DeptName depends on DeptID (a non-key attribute), violating 3NF. Splitting into Employee(EmpID, Name, DeptID) and Department(DeptID, DeptName) achieves 3NF."
+        )
+        registerTopic("3nf", thirdNormalFormTopic)
+        registerTopic("third normal form", thirdNormalFormTopic)
+
+        // --- Artificial Intelligence & Machine Learning ---
+        val machineLearningTopic = KnowledgeTopic(
+            title = "Machine Learning (ML)",
+            domain = "Computer Science",
+            definition = "Machine Learning is a subfield of Artificial Intelligence that develops algorithms and statistical models enabling computer systems to learn from data and improve task performance without being explicitly programmed.",
+            explanation = "Instead of writing hard-coded if-else rules, machine learning trains a model on historical data features to generalize patterns and make predictions on unseen data. The three primary paradigms are Supervised Learning, Unsupervised Learning, and Reinforcement Learning.",
+            keyPoints = listOf(
+                "Data-Driven: Models extract patterns and statistical correlations directly from training samples.",
+                "Generalization: A good model accurately predicts new, unseen test data without overfitting.",
+                "Three Paradigms: Supervised (labeled data), Unsupervised (unlabeled data), and Reinforcement (trial-and-error rewards)."
+            ),
+            example = "Email spam filtering: An ML model trains on thousands of emails labeled 'spam' or 'not spam' to learn word frequencies and automatically classify incoming emails."
+        )
+        registerTopic("machine learning", machineLearningTopic)
+        registerTopic("ml", machineLearningTopic)
+
+        val supervisedLearningTopic = KnowledgeTopic(
+            title = "Supervised Machine Learning",
+            domain = "Computer Science",
+            definition = "Supervised Learning is a machine learning paradigm where an algorithm trains on labeled input-output pairs (X, y) to learn a mapping function that predicts the correct output for new inputs.",
+            explanation = "In supervised learning, the model receives both features (inputs) and target ground-truth labels (outputs). The learning algorithm adjusts its internal parameters by minimizing a loss function (the difference between its prediction and the true label). It is divided into Classification (discrete categories) and Regression (continuous values).",
+            keyPoints = listOf(
+                "Labeled Data: Requires ground truth labels for every training instance.",
+                "Classification: Predicts discrete categorical labels (e.g., spam vs. not spam, disease diagnosis).",
+                "Regression: Predicts continuous numerical quantities (e.g., house prices, student test scores).",
+                "Common Algorithms: Linear Regression, Logistic Regression, Decision Trees, Random Forests, Support Vector Machines (SVM), Neural Networks."
+            ),
+            example = "Predicting house prices: Input features like square footage, number of bedrooms, and location are paired with actual sale prices (labels) to train a regression model."
+        )
+        registerTopic("supervised learning", supervisedLearningTopic)
+        registerTopic("supervised machine learning", supervisedLearningTopic)
+
+        val unsupervisedLearningTopic = KnowledgeTopic(
+            title = "Unsupervised Machine Learning",
+            domain = "Computer Science",
+            definition = "Unsupervised Learning is a machine learning paradigm where an algorithm discovers hidden patterns, groupings, and intrinsic structures in input data without labeled target outputs.",
+            explanation = "Because there are no ground-truth answers or human supervisor, the algorithm organizes the data based on geometric similarity, density, or statistical distributions. The two primary techniques are Clustering and Dimensionality Reduction.",
+            keyPoints = listOf(
+                "Unlabeled Data: Learns entirely without human annotations or predefined classes.",
+                "Clustering: Groups similar data points together (e.g., K-Means, Hierarchical Clustering, DBSCAN).",
+                "Dimensionality Reduction: Compresses high-dimensional data while preserving variance (e.g., PCA, t-SNE).",
+                "Anomaly Detection: Identifies outliers that deviate significantly from standard distribution."
+            ),
+            example = "Customer segmentation: An e-commerce platform clusters customers into groups based on browsing history and purchasing habits to deliver personalized marketing campaigns."
+        )
+        registerTopic("unsupervised learning", unsupervisedLearningTopic)
+        registerTopic("unsupervised machine learning", unsupervisedLearningTopic)
+
+        val reinforcementLearningTopic = KnowledgeTopic(
+            title = "Reinforcement Learning (RL)",
+            domain = "Computer Science",
+            definition = "Reinforcement Learning is an area of machine learning where an autonomous agent learns to make sequential decisions in an environment by performing actions to maximize cumulative reward.",
+            explanation = "Unlike supervised learning, there are no correct answers provided; instead, the agent receives feedback through rewards and penalties based on trial-and-error interactions (modeled as a Markov Decision Process).",
+            keyPoints = listOf(
+                "Agent & Environment: The agent observes current state, executes action, and transitions to a new state.",
+                "Reward Signal: Immediate numerical feedback guiding the agent toward optimal behavior.",
+                "Exploration vs. Exploitation: Balancing trying new actions to discover rewards vs. leveraging known high-reward actions.",
+                "Applications: Game playing (AlphaGo, chess), autonomous robotics, and recommendation systems."
+            ),
+            example = "Self-driving vehicle: The car receives positive reward for staying in lane and arriving safely, and severe penalties for collisions or traffic violations."
+        )
+        registerTopic("reinforcement learning", reinforcementLearningTopic)
+
+        val neuralNetworkTopic = KnowledgeTopic(
+            title = "Artificial Neural Networks & Deep Learning",
+            domain = "Computer Science",
+            definition = "An Artificial Neural Network (ANN) is a computational model inspired by biological brains, consisting of interconnected layers of artificial neurons (nodes) that compute non-linear transformations of input data.",
+            explanation = "Deep learning refers to neural networks with multiple hidden layers (deep architectures). Through forward propagation, activation functions (e.g., ReLU, Sigmoid), and backpropagation with gradient descent, deep neural networks learn hierarchical representations of complex data such as images, audio, and natural language.",
+            keyPoints = listOf(
+                "Layers: Composed of an Input Layer, one or more Hidden Layers, and an Output Layer.",
+                "Weights & Biases: Learnable parameters adjusted during training via backpropagation.",
+                "Activation Functions: Introduce non-linearity (e.g. ReLU, Softmax, Tanh) so networks can model complex boundaries.",
+                "Architectures: CNNs for computer vision, RNNs/Transformers for natural language processing."
+            ),
+            example = "Face recognition: The first layer detects edges, middle layers detect facial features (eyes, nose), and final layers recognize whole faces."
+        )
+        registerTopic("neural network", neuralNetworkTopic)
+        registerTopic("neural networks", neuralNetworkTopic)
+        registerTopic("deep learning", neuralNetworkTopic)
+        registerTopic("artificial neural network", neuralNetworkTopic)
+
         // --- Operating Systems ---
         registerTopic(
             "deadlock",
@@ -771,6 +932,11 @@ INNER JOIN Courses ON Enrollments.course_id = Courses.id;
 
         if (lower.isBlank()) return null
 
+        // Comparative queries (e.g. "difference between X and Y", "compare X and Y") are handled by comparative reasoning in OfflineReasoningEvaluator
+        if (lower.contains("difference between") || lower.contains("compare") || lower.contains("versus") || lower.contains(" vs ")) {
+            return null
+        }
+
         val strippedArticle = lower.replace(Regex("""^(?:a|an|the)\s+"""), "").trim()
 
         // 1. Exact topic key match
@@ -781,20 +947,33 @@ INNER JOIN Courses ON Enrollments.course_id = Courses.id;
             return formatAnswerItem(clean, topic)
         }
 
-        // 2. Substring or keyword match
-        for ((key, topic) in TOPICS) {
-            if (strippedArticle == key || strippedArticle.contains(key) || key.contains(strippedArticle)) {
-                return formatAnswerItem(clean, topic)
+        // 2. Multi-word / tokenized whole-word match, prioritizing longer/more specific keys
+        val sortedKeys = TOPICS.keys.sortedByDescending { it.length }
+
+        // 2a. Match whole word or exact phrase in query
+        for (key in sortedKeys) {
+            val pattern = Regex("""\b${Regex.escape(key)}\b""", RegexOption.IGNORE_CASE)
+            if (pattern.containsMatchIn(lower) || pattern.containsMatchIn(strippedArticle)) {
+                return formatAnswerItem(clean, TOPICS[key]!!)
+            }
+        }
+
+        // 2b. Prefix or substring match for specific query strings of substantial length (>= 4 chars)
+        if (strippedArticle.length >= 4) {
+            for (key in sortedKeys) {
+                if (key.startsWith(strippedArticle) || key.contains(strippedArticle)) {
+                    return formatAnswerItem(clean, TOPICS[key]!!)
+                }
             }
         }
 
         // 3. Multi-word overlap match
-        val words = lower.split(" ").filter { it.length > 2 && it !in setOf("the", "and", "for", "with") }
+        val words = lower.split(" ").filter { it.length > 2 && it !in setOf("the", "and", "for", "with", "example", "simple", "real", "world") }
         if (words.size >= 2) {
-            for ((key, topic) in TOPICS) {
+            for (key in sortedKeys) {
                 val keyWords = key.split(" ").filter { it.length > 2 }
                 if (keyWords.isNotEmpty() && keyWords.all { lower.contains(it) }) {
-                    return formatAnswerItem(clean, topic)
+                    return formatAnswerItem(clean, TOPICS[key]!!)
                 }
             }
         }

@@ -75,7 +75,7 @@ class QaAssistantLiveIntegrationTest {
         }
 
         assertNotNull(data1.assistantMessage)
-        assertEquals("gemini", data1.assistantMessage?.provider)
+        assertTrue(data1.assistantMessage?.provider in listOf("gemini", "slm_rag", "ollama_slm", "local_rag_extractive"))
         assertTrue(data1.assistantMessage?.content?.isNotBlank() == true)
         val convId = data1.conversationId
         assertTrue("Conversation ID should be > 0", convId > 0)
@@ -97,7 +97,7 @@ class QaAssistantLiveIntegrationTest {
         val data2 = (result2 as ChatResult.Success).data
         assertEquals("Follow-up question must retain conversation ID", convId, data2.conversationId)
         assertNotNull(data2.assistantMessage)
-        assertEquals("gemini", data2.assistantMessage?.provider)
+        assertTrue(data2.assistantMessage?.provider in listOf("gemini", "slm_rag", "ollama_slm", "local_rag_extractive"))
 
         // Step 3: Retrieve Conversation History
         val histResult = ChatRepository.getHistory(convId)

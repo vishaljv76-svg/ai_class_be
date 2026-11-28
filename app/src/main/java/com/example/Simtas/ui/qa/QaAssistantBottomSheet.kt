@@ -395,7 +395,7 @@ fun QaAssistantBottomSheet(
                                             Color(0xFF137333)
                                         )
                                         MessageSource.OFFLINE_ENGINE -> Triple(
-                                            "Offline Curriculum",
+                                            item.provider?.takeIf { it.isNotBlank() } ?: "Offline Curriculum",
                                             Color(0xFFFEF3C7),
                                             Color(0xFFB45309)
                                         )

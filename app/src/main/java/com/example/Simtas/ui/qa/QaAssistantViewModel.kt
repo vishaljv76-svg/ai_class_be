@@ -13,6 +13,7 @@ import com.example.Simtas.data.ml.QuestionAnsweringEngine
 import com.example.Simtas.data.ml.WhisperModelManager
 import com.example.Simtas.data.repository.ChatRepository
 import com.example.Simtas.data.repository.ChatResult
+import com.example.Simtas.data.repository.ChatStreamEvent
 import com.example.Simtas.network.ChatConversationItem
 import com.example.Simtas.ui.detailednotes.DetailedNotesUiState
 import kotlinx.coroutines.Dispatchers
@@ -47,7 +48,11 @@ data class QaMessageItem(
     val isAnswered: Boolean = true,
     val timestamp: Long = System.currentTimeMillis(),
     val imageBitmap: Bitmap? = null,
-    val imageUri: String? = null
+    val imageUri: String? = null,
+    val isStreaming: Boolean = false,
+    val attachmentId: Int? = null,
+    val isImageLoading: Boolean = false,
+    val imageLoadFailed: Boolean = false
 )
 
 data class QaAssistantUiState(
@@ -82,6 +87,9 @@ class QaAssistantViewModel : ViewModel() {
 
     @Volatile
     private var isDownloadingModel = false
+
+    @Volatile
+    internal var geminiRateLimitedUntil: Long = 0L
 
     /**
      * Toggles or selects the recognition language ("en" for English, "ta" for Tamil).
@@ -507,51 +515,269 @@ class QaAssistantViewModel : ViewModel() {
             )
         }
 
+        val hasLectureContext = transcriptText.isNotBlank() || detailedNotes != null || summaryText.isNotBlank() || keyTakeaways.isNotEmpty()
+
         if (forceOffline) {
-            executeOfflineAnswer(effectivePrompt, transcriptText, detailedNotes, summaryText, keyTakeaways)
+            executeOfflineAnswer(effectivePrompt, transcriptText, detailedNotes, summaryText, keyTakeaways, subject, lectureTitle)
+            return
+        }
+
+        // Avoid repeatedly retrying Gemini when HTTP 429 rate limit is currently active
+        if (System.currentTimeMillis() < geminiRateLimitedUntil) {
+            executeOfflineAnswer(effectivePrompt, transcriptText, detailedNotes, summaryText, keyTakeaways, subject, lectureTitle)
             return
         }
 
         viewModelScope.launch {
             val currentConvId = _uiState.value.conversationId
-            val result = ChatRepository.sendMessage(
-                message = effectivePrompt,
-                conversationId = currentConvId,
-                subject = subject,
-                lectureTitle = lectureTitle,
-                imageData = effectiveImageData,
-                imageMime = effectiveImageMime
-            )
+            var assistantMessageId: String? = null
+            var accumulatedText = ""
+            var hasReceivedChunk = false
 
-            when (result) {
-                is ChatResult.Success -> {
-                    val data = result.data
-                    val assistantText = data.assistantMessage?.content ?: data.message
-                    val provider = data.assistantMessage?.provider ?: "gemini"
+            try {
+                ChatRepository.streamMessage(
+                    message = effectivePrompt,
+                    conversationId = currentConvId,
+                    subject = subject,
+                    lectureTitle = lectureTitle,
+                    imageData = effectiveImageData,
+                    imageMime = effectiveImageMime
+                ).collect { event ->
+                    when (event) {
+                        is ChatStreamEvent.Start -> {
+                            _uiState.update { state ->
+                                state.copy(
+                                    conversationId = event.conversationId,
+                                    conversationTitle = event.conversationTitle.ifBlank { state.conversationTitle }
+                                )
+                            }
+                        }
 
-                    val assistantMsg = QaMessageItem(
-                        sender = MessageSource.ONLINE_GEMINI,
-                        text = assistantText,
-                        provider = provider,
-                        isAnswered = true,
-                        timestamp = System.currentTimeMillis()
-                    )
+                        is ChatStreamEvent.Chunk -> {
+                            hasReceivedChunk = true
+                            accumulatedText += event.chunkText
 
-                    _uiState.update {
-                        it.copy(
-                            messages = listOf(assistantMsg) + it.messages,
-                            conversationId = data.conversationId,
-                            conversationTitle = data.conversationTitle,
-                            isLoading = false,
-                            errorMessage = null
-                        )
+                            if (assistantMessageId == null) {
+                                // Create exactly ONE assistant message on the first chunk
+                                val newAssistantMsg = QaMessageItem(
+                                    sender = MessageSource.ONLINE_GEMINI,
+                                    text = accumulatedText,
+                                    provider = "SmartNotes AI",
+                                    isAnswered = true,
+                                    isStreaming = true,
+                                    timestamp = System.currentTimeMillis()
+                                )
+                                assistantMessageId = newAssistantMsg.id
+
+                                _uiState.update { state ->
+                                    state.copy(
+                                        messages = listOf(newAssistantMsg) + state.messages,
+                                        isLoading = false,
+                                        errorMessage = null
+                                    )
+                                }
+                            } else {
+                                // Update that same assistant message in-place as more chunks arrive
+                                val targetId = assistantMessageId!!
+                                _uiState.update { state ->
+                                    state.copy(
+                                        messages = state.messages.map { msg ->
+                                            if (msg.id == targetId) {
+                                                msg.copy(text = accumulatedText, isStreaming = true)
+                                            } else {
+                                                msg
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        is ChatStreamEvent.Done -> {
+                            val targetId = assistantMessageId
+                            if (targetId != null) {
+                                _uiState.update { state ->
+                                    state.copy(
+                                        messages = state.messages.map { msg ->
+                                            if (msg.id == targetId) {
+                                                msg.copy(
+                                                    text = accumulatedText,
+                                                    isStreaming = false,
+                                                    isAnswered = true
+                                                )
+                                            } else {
+                                                msg
+                                            }
+                                        },
+                                        conversationId = event.conversationId,
+                                        conversationTitle = event.conversationTitle.ifBlank { state.conversationTitle },
+                                        isLoading = false,
+                                        errorMessage = null
+                                    )
+                                }
+                            } else {
+                                // Insert completed assistant message into messages list even if no Chunk event was received
+                                if (accumulatedText.isNotBlank()) {
+                                    val completedMsg = QaMessageItem(
+                                        sender = MessageSource.ONLINE_GEMINI,
+                                        text = accumulatedText,
+                                        provider = "SmartNotes AI",
+                                        isAnswered = true,
+                                        isStreaming = false,
+                                        timestamp = System.currentTimeMillis()
+                                    )
+                                    _uiState.update { state ->
+                                        state.copy(
+                                            messages = listOf(completedMsg) + state.messages,
+                                            conversationId = event.conversationId,
+                                            conversationTitle = event.conversationTitle.ifBlank { state.conversationTitle },
+                                            isLoading = false,
+                                            errorMessage = null
+                                        )
+                                    }
+                                } else {
+                                    _uiState.update { state ->
+                                        state.copy(
+                                            conversationId = event.conversationId,
+                                            conversationTitle = event.conversationTitle.ifBlank { state.conversationTitle },
+                                            isLoading = false
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Auto-save to My Notes ONLY after a valid Done event with complete answer
+                            if (accumulatedText.isNotBlank()) {
+                                autoSaveQuestionAnswerToMyNotes(
+                                    question = effectivePrompt,
+                                    answer = accumulatedText,
+                                    subject = subject,
+                                    lectureTitle = lectureTitle
+                                )
+                            }
+
+                            // Refresh conversation list after successful completion
+                            fetchConversations()
+                        }
+
+                        is ChatStreamEvent.Error -> {
+                            val isRateLimitError = event.errorCode?.contains("429") == true || event.message.contains("429")
+                            if (isRateLimitError) {
+                                // Cooldown to avoid repeatedly slamming Gemini when 429 is returned
+                                geminiRateLimitedUntil = System.currentTimeMillis() + 60_000L
+                            }
+
+                            if (!hasReceivedChunk && assistantMessageId == null) {
+                                // Error occurred BEFORE any chunks: trigger existing offline fallback
+                                val offlineAnswer = QuestionAnsweringEngine.answerQuestion(
+                                    question = effectivePrompt,
+                                    transcriptText = transcriptText,
+                                    detailedNotes = detailedNotes,
+                                    summaryText = summaryText,
+                                    keyTakeaways = keyTakeaways
+                                )
+
+                                val friendlyProvider = if (hasLectureContext) {
+                                    "Offline Curriculum"
+                                } else {
+                                    "Answered using Offline Knowledge"
+                                }
+
+                                if (offlineAnswer.isAnswered) {
+                                    // Fallback successfully generated an answer:
+                                    // Keep and display answer, friendly label, and DO NOT show red error toast
+                                    val offlineMsg = QaMessageItem(
+                                        sender = MessageSource.OFFLINE_ENGINE,
+                                        text = offlineAnswer.answer,
+                                        explanation = offlineAnswer.explanation,
+                                        provider = friendlyProvider,
+                                        isAnswered = true,
+                                        isStreaming = false,
+                                        timestamp = System.currentTimeMillis()
+                                    )
+
+                                    _uiState.update { state ->
+                                        state.copy(
+                                            messages = listOf(offlineMsg) + state.messages,
+                                            isLoading = false,
+                                            errorMessage = null // Do not show red error banner
+                                        )
+                                    }
+                                    autoSaveQuestionAnswerToMyNotes(
+                                        question = effectivePrompt,
+                                        answer = offlineAnswer.answer,
+                                        subject = subject,
+                                        lectureTitle = lectureTitle
+                                    )
+                                } else {
+                                    // Both Gemini and fallback failed:
+                                    // Show clear friendly error message and always stop loading indicator
+                                    val displayText = if (!hasLectureContext) {
+                                        "SmartNotes AI is currently unable to answer this question. Live AI service is temporarily unavailable and no matching explanation was found in offline knowledge."
+                                    } else {
+                                        offlineAnswer.answer
+                                    }
+
+                                    val offlineMsg = QaMessageItem(
+                                        sender = MessageSource.OFFLINE_ENGINE,
+                                        text = displayText,
+                                        explanation = offlineAnswer.explanation,
+                                        provider = friendlyProvider,
+                                        isAnswered = false,
+                                        isStreaming = false,
+                                        timestamp = System.currentTimeMillis()
+                                    )
+
+                                    val friendlyError = if (isRateLimitError) {
+                                        "Live AI service is temporarily busy (rate limited). Please try again in a few moments."
+                                    } else {
+                                        event.message.ifBlank { "AI service is temporarily unavailable. Please try again shortly." }
+                                    }
+
+                                    _uiState.update { state ->
+                                        state.copy(
+                                            messages = listOf(offlineMsg) + state.messages,
+                                            isLoading = false,
+                                            errorMessage = friendlyError
+                                        )
+                                    }
+                                }
+                            } else {
+                                // Error occurred AFTER partial chunks:
+                                val targetId = assistantMessageId
+                                _uiState.update { state ->
+                                    state.copy(
+                                        messages = state.messages.map { msg ->
+                                            if (msg.id == targetId) {
+                                                msg.copy(
+                                                    isStreaming = false,
+                                                    isAnswered = false,
+                                                    explanation = "(Stream interrupted: ${event.message})"
+                                                )
+                                            } else {
+                                                msg
+                                            }
+                                        },
+                                        isLoading = false,
+                                        errorMessage = if (isRateLimitError) {
+                                            "Live AI service is temporarily busy (rate limited). Please try again in a few moments."
+                                        } else {
+                                            event.message
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
-                    autoSaveQuestionAnswerToMyNotes(effectivePrompt, assistantText, subject, lectureTitle)
-                    // Refresh conversation list after new message
-                    fetchConversations()
                 }
-                is ChatResult.Error -> {
-                    // Graceful offline fallback with clear labelling
+            } catch (e: Exception) {
+                val errText = e.localizedMessage ?: "Network error"
+                val isRateLimitError = errText.contains("429")
+                if (isRateLimitError) {
+                    geminiRateLimitedUntil = System.currentTimeMillis() + 60_000L
+                }
+
+                if (!hasReceivedChunk && assistantMessageId == null) {
                     val offlineAnswer = QuestionAnsweringEngine.answerQuestion(
                         question = effectivePrompt,
                         transcriptText = transcriptText,
@@ -560,27 +786,72 @@ class QaAssistantViewModel : ViewModel() {
                         keyTakeaways = keyTakeaways
                     )
 
-                    val offlineMsg = QaMessageItem(
-                        sender = MessageSource.OFFLINE_ENGINE,
-                        text = offlineAnswer.answer,
-                        explanation = if (offlineAnswer.explanation.isNotBlank()) {
-                            "${offlineAnswer.explanation} (Note: Offline Fallback due to ${result.message})"
-                        } else {
-                            "Offline Fallback (Live Gemini unavailable: ${result.message})"
-                        },
-                        provider = "Offline Curriculum Knowledge",
-                        isAnswered = offlineAnswer.isAnswered,
-                        timestamp = System.currentTimeMillis()
-                    )
-
-                    _uiState.update {
-                        it.copy(
-                            messages = listOf(offlineMsg) + it.messages,
-                            isLoading = false,
-                            errorMessage = result.message
-                        )
+                    val friendlyProvider = if (hasLectureContext) {
+                        "Offline Curriculum"
+                    } else {
+                        "Answered using Offline Knowledge"
                     }
-                    autoSaveQuestionAnswerToMyNotes(effectivePrompt, offlineAnswer.answer, subject, lectureTitle)
+
+                    if (offlineAnswer.isAnswered) {
+                        val offlineMsg = QaMessageItem(
+                            sender = MessageSource.OFFLINE_ENGINE,
+                            text = offlineAnswer.answer,
+                            explanation = offlineAnswer.explanation,
+                            provider = friendlyProvider,
+                            isAnswered = true,
+                            isStreaming = false,
+                            timestamp = System.currentTimeMillis()
+                        )
+                        _uiState.update { state ->
+                            state.copy(
+                                messages = listOf(offlineMsg) + state.messages,
+                                isLoading = false,
+                                errorMessage = null
+                            )
+                        }
+                        autoSaveQuestionAnswerToMyNotes(
+                            question = effectivePrompt,
+                            answer = offlineAnswer.answer,
+                            subject = subject,
+                            lectureTitle = lectureTitle
+                        )
+                    } else {
+                        val displayText = if (!hasLectureContext) {
+                            "SmartNotes AI is currently unable to answer this question. Live AI service is temporarily unavailable and no matching explanation was found in offline knowledge."
+                        } else {
+                            offlineAnswer.answer
+                        }
+                        val offlineMsg = QaMessageItem(
+                            sender = MessageSource.OFFLINE_ENGINE,
+                            text = displayText,
+                            explanation = offlineAnswer.explanation,
+                            provider = friendlyProvider,
+                            isAnswered = false,
+                            isStreaming = false,
+                            timestamp = System.currentTimeMillis()
+                        )
+                        val friendlyError = if (isRateLimitError) {
+                            "Live AI service is temporarily busy (rate limited). Please try again in a few moments."
+                        } else {
+                            errText
+                        }
+                        _uiState.update { state ->
+                            state.copy(
+                                messages = listOf(offlineMsg) + state.messages,
+                                isLoading = false,
+                                errorMessage = friendlyError
+                            )
+                        }
+                    }
+                }
+            } finally {
+                // Guaranteed safety: ensure isLoading is never left stuck as true
+                _uiState.update { state ->
+                    if (state.isLoading) {
+                        state.copy(isLoading = false)
+                    } else {
+                        state
+                    }
                 }
             }
         }
@@ -591,8 +862,11 @@ class QaAssistantViewModel : ViewModel() {
         transcriptText: String,
         detailedNotes: DetailedNotesUiState?,
         summaryText: String,
-        keyTakeaways: List<String>
+        keyTakeaways: List<String>,
+        subject: String? = null,
+        lectureTitle: String? = null
     ) {
+        val hasLectureContext = transcriptText.isNotBlank() || detailedNotes != null || summaryText.isNotBlank() || keyTakeaways.isNotEmpty()
         val offlineAnswer = QuestionAnsweringEngine.answerQuestion(
             question = question,
             transcriptText = transcriptText,
@@ -601,23 +875,43 @@ class QaAssistantViewModel : ViewModel() {
             keyTakeaways = keyTakeaways
         )
 
+        val friendlyProvider = if (hasLectureContext) {
+            "Offline Curriculum"
+        } else {
+            "Answered using Offline Knowledge"
+        }
+
+        val displayText = if (!hasLectureContext && !offlineAnswer.isAnswered) {
+            "SmartNotes AI is currently unable to answer this question. Live AI service is temporarily unavailable and no matching explanation was found in offline knowledge."
+        } else {
+            offlineAnswer.answer
+        }
+
         val offlineMsg = QaMessageItem(
             sender = MessageSource.OFFLINE_ENGINE,
-            text = offlineAnswer.answer,
+            text = displayText,
             explanation = offlineAnswer.explanation,
-            provider = "Offline Curriculum Knowledge",
+            provider = friendlyProvider,
             isAnswered = offlineAnswer.isAnswered,
             timestamp = System.currentTimeMillis()
         )
+
+        val errorMsg = if (!offlineAnswer.isAnswered) {
+            "Live AI service is temporarily unavailable. Please try again in a few moments."
+        } else {
+            null
+        }
 
         _uiState.update {
             it.copy(
                 messages = listOf(offlineMsg) + it.messages,
                 isLoading = false,
-                errorMessage = null
+                errorMessage = errorMsg
             )
         }
-        autoSaveQuestionAnswerToMyNotes(question, offlineAnswer.answer, null, null)
+        if (offlineAnswer.isAnswered) {
+            autoSaveQuestionAnswerToMyNotes(question, offlineAnswer.answer, subject, lectureTitle)
+        }
     }
 
     private fun autoSaveQuestionAnswerToMyNotes(
@@ -656,11 +950,17 @@ class QaAssistantViewModel : ViewModel() {
                 is ChatResult.Success -> {
                     val historyItems = result.data.messages.mapIndexed { index, msg ->
                         val isUser = msg.role.equals("user", ignoreCase = true)
+                        val firstAttach = if (isUser) msg.attachments.firstOrNull() else null
+                        val cachedBitmap = firstAttach?.id?.let { ChatRepository.getCachedAttachmentBitmap(it) }
                         QaMessageItem(
                             sender = if (isUser) MessageSource.USER else MessageSource.ONLINE_GEMINI,
                             text = msg.message_content,
                             provider = msg.provider ?: if (isUser) null else "gemini",
-                            timestamp = System.currentTimeMillis() - (result.data.messages.size - index) * 1000L
+                            timestamp = System.currentTimeMillis() - (result.data.messages.size - index) * 1000L,
+                            attachmentId = firstAttach?.id,
+                            imageBitmap = cachedBitmap,
+                            isImageLoading = firstAttach != null && cachedBitmap == null,
+                            imageLoadFailed = false
                         )
                     }.reversed()
 
@@ -671,6 +971,28 @@ class QaAssistantViewModel : ViewModel() {
                             conversationTitle = result.data.title,
                             isLoading = false
                         )
+                    }
+
+                    // Asynchronously load images for attachments not yet cached
+                    historyItems.filter { it.attachmentId != null && it.imageBitmap == null }.forEach { item ->
+                        viewModelScope.launch {
+                            val attachId = item.attachmentId ?: return@launch
+                            val bitmap = ChatRepository.getAttachmentBitmap(attachId)
+                            _uiState.update { state ->
+                                val updatedMessages = state.messages.map { m ->
+                                    if (m.id == item.id) {
+                                        if (bitmap != null) {
+                                            m.copy(imageBitmap = bitmap, isImageLoading = false, imageLoadFailed = false)
+                                        } else {
+                                            m.copy(isImageLoading = false, imageLoadFailed = true)
+                                        }
+                                    } else {
+                                        m
+                                    }
+                                }
+                                state.copy(messages = updatedMessages)
+                            }
+                        }
                     }
                 }
                 is ChatResult.Error -> {
